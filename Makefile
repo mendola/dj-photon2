@@ -87,7 +87,7 @@ PROJECT = ch
 
 # Imported source files and paths
 PROJ_ROOT = .
-CHIBIOS = $(PROJ_ROOT)/resources/ChibiOS
+CHIBIOS = /home/alex/ChibiOS
 CONFDIR = $(PROJ_ROOT)/resources/conf
 BOARDDIR = $(PROJ_ROOT)/resources/board
 
