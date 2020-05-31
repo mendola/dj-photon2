@@ -18,15 +18,14 @@
 #define _BOARD_H_
 
 /*
- * Setup for the STM32F103C8T6 Module often described as "Arduino"-like
- * on eBay, typically marked "www.vcc-gnd.com".
+ * Setup for the Olimex STM32-P103 proto board.
  */
 
 /*
  * Board identifier.
  */
-#define BOARD_MINIMAL_STM32_F103
-#define BOARD_NAME              "STM32F103 Minimal Module"
+#define BOARD_OLIMEX_STM32_P103
+#define BOARD_NAME              "Olimex STM32-P103"
 
 /*
  * Board frequencies.
@@ -36,30 +35,36 @@
 
 /*
  * MCU type, supported types are defined in ./os/hal/platforms/hal_lld.h.
- *
- * Only xB (128KB Flash) is defined, but it's identical to the
- * x8 version (64KB Flash) except for the Flash region size in the
- * linker script. For x8 parts use xB here and change to the x8 linker
- * script in the project Makefile.
  */
 #define STM32F103xB
 
 /*
- * IO pins assignments
- *
- * numbering is sorted by onboard/connectors, as from the schematics in
- * http://www.vcc-gnd.com/read.php?tid=369
+ * IO pins assignments.
  */
+#define GPIOA_BUTTON            0
+#define GPIOA_SPI1NSS           4
 
-/* on-board */
+#define GPIOB_SPI2NSS           12
 
-#define GPIOC_LED               13
+#define GPIOC_USB_P             4
+#define GPIOC_MMCWP             6
+#define GPIOC_MMCCP             7
+#define GPIOC_CAN_CNTL          10
+#define GPIOC_USB_DISC          11
+#define GPIOC_LED               12
 
-#define GPIOA_USBDM             11      // pin 8
-#define GPIOA_USBDP             12      // pin 9
-
-#define GPIOC_OSC32_IN          14
-#define GPIOC_OSC32_OUT         15
+/*
+ * IO lines assignments.
+ */
+#define LINE_BUTTON                 PAL_LINE(GPIOA, 0U)
+#define LINE_SPI1NSS                PAL_LINE(GPIOA, 4U)
+#define LINE_SPI2NSS                PAL_LINE(GPIOB, 12U)
+#define LINE_USB_P                  PAL_LINE(GPIOC, 4U)
+#define LINE_MMCWP                  PAL_LINE(GPIOC, 6U)
+#define LINE_MMCCP                  PAL_LINE(GPIOC, 7U)
+#define LINE_CAN_CNTL               PAL_LINE(GPIOC, 10U)
+#define LINE_USB_DISC               PAL_LINE(GPIOC, 11U)
+#define LINE_LED                    PAL_LINE(GPIOC, 12U)
 
 /*
  * I/O ports initial setup, this configuration is established soon after reset
@@ -88,26 +93,39 @@
 /*
  * Port A setup.
  * Everything input with pull-up except:
+ * PA0  - Normal input      (BUTTON).
+ * PA2  - Alternate output  (USART2 TX).
+ * PA3  - Normal input      (USART2 RX).
+ * PA11 - Normal input      (USB DM).
+ * PA12 - Normal input      (USB DP).
  */
-#define VAL_GPIOACRL            0x88888888      /*  PA7...PA0 */
-#define VAL_GPIOACRH            0x88888888      /* PA15...PA8 */
+#define VAL_GPIOACRL            0x88884B84      /*  PA7...PA0 */
+#define VAL_GPIOACRH            0x88844888      /* PA15...PA8 */
 #define VAL_GPIOAODR            0xFFFFFFFF
 
 /*
  * Port B setup.
  * Everything input with pull-up except:
+ * PB13 - Alternate output  (MMC SPI2 SCK).
+ * PB14 - Normal input      (MMC SPI2 MISO).
+ * PB15 - Alternate output  (MMC SPI2 MOSI).
  */
 #define VAL_GPIOBCRL            0x88888888      /*  PB7...PB0 */
-#define VAL_GPIOBCRH            0x88888888      /* PB15...PB8 */
+#define VAL_GPIOBCRH            0xB4B88888      /* PB15...PB8 */
 #define VAL_GPIOBODR            0xFFFFFFFF
 
 /*
  * Port C setup.
  * Everything input with pull-up except:
- * PC13 - Digital output (LED).
+ * PC4  - Normal input because there is an external resistor.
+ * PC6  - Normal input because there is an external resistor.
+ * PC7  - Normal input because there is an external resistor.
+ * PC10 - Push Pull output (CAN CNTRL).
+ * PC11 - Push Pull output (USB DISC).
+ * PC12 - Push Pull output (LED).
  */
-#define VAL_GPIOCCRL            0x88888888      /*  PC7...PC0 */
-#define VAL_GPIOCCRH            0x88388888      /* PC15...PC8 */
+#define VAL_GPIOCCRL            0x44848888      /*  PC7...PC0 */
+#define VAL_GPIOCCRH            0x88833388      /* PC15...PC8 */
 #define VAL_GPIOCODR            0xFFFFFFFF
 
 /*
@@ -131,12 +149,12 @@
 /*
  * USB bus activation macro, required by the USB driver.
  */
-#define usb_lld_connect_bus(usbp)	/* always connected */
+#define usb_lld_connect_bus(usbp) palClearPad(GPIOC, GPIOC_USB_DISC)
 
 /*
  * USB bus de-activation macro, required by the USB driver.
  */
-#define usb_lld_disconnect_bus(usbp)	/* always connected */
+#define usb_lld_disconnect_bus(usbp) palSetPad(GPIOC, GPIOC_USB_DISC)
 
 #if !defined(_FROM_ASM_)
 #ifdef __cplusplus
