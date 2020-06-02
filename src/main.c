@@ -148,7 +148,7 @@ int main(void) {
    * Normal main() thread activity, in this demo it does nothing.
    */
   while (true) {
-    if (palReadPad(GPIOA, GPIOA_BUTTON))
+    if (palReadPad(GPIOA, GPIOA_USBDM)) // nonsense
       adcStopConversion(&ADCD1);
     chThdSleepMilliseconds(500);
   }
