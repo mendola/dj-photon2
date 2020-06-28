@@ -158,7 +158,7 @@ void SendFrameManually(uint16_t frame) {
 }
 
 void TransmitSamples(const uint16_t ch1_out, const uint16_t ch2_out) {
-  volatile uint16_t both_samples[4] = {0};
+  volatile uint16_t both_samples[2] = {0};
   both_samples[0] = MakeCommandPacket(ch1_out, true);
   both_samples[1] = MakeCommandPacket(ch2_out, false);
   //spiSelect(&SPID2);                  /* Slave Select assertion.          */
