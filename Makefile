@@ -5,7 +5,7 @@
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
-  USE_OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16
+  USE_OPT = -O0 -ggdb -fomit-frame-pointer -falign-functions=16
 endif
 
 # C specific options here (added to USE_OPT).
@@ -115,7 +115,8 @@ LDSCRIPT= $(STARTUPLD)/STM32F103x8.ld
 # setting.
 CSRC = $(ALLCSRC) \
        $(TESTSRC) \
-       $(PROJ_ROOT)/src/main.c
+       $(PROJ_ROOT)/src/main.c \
+       $(PROJ_ROOT)/src/dac_mcp4822.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -181,7 +182,7 @@ AOPT =
 TOPT = -mthumb -DTHUMB
 
 # Define C warning options here
-CWARN = -Wall -Wextra -Wundef -Wstrict-prototypes
+CWARN = -Wall -Wextra -Wundef -Wstrict-prototypes -Wundef
 
 # Define C++ warning options here
 CPPWARN = -Wall -Wextra -Wundef
@@ -201,10 +202,10 @@ UDEFS =
 UADEFS =
 
 # List all user directories here
-UINCDIR = $(CONFDIR) $(BOARDDIR)
+UINCDIR = $(CONFDIR) $(BOARDDIR) ${PROJ_ROOT}/include
 
 # List the user directory to look for the libraries here
-ULIBDIR = 
+ULIBDIR = ${PROJ_ROOT}/include
 
 # List all user libraries here
 ULIBS = 

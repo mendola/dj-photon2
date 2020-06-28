@@ -17,14 +17,16 @@
 #include "ch.h"
 #include "hal.h"
 
+#include "dac_mcp4822.h"
+
 #define ADC_GRP1_NUM_CHANNELS   1
 #define ADC_GRP1_BUF_DEPTH      8
 
 #define ADC_GRP2_NUM_CHANNELS   8
 #define ADC_GRP2_BUF_DEPTH      16
 
-static adcsample_t samples1[ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH];
-static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
+// static adcsample_t samples1[ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH];
+// static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
 
 /*
  * ADC streaming callback.
@@ -51,56 +53,56 @@ static void adcerrorcallback(ADCDriver *adcp, adcerror_t err) {
  * Mode:        Linear buffer, 8 samples of 1 channel, SW triggered.
  * Channels:    IN10.
  */
-static const ADCConversionGroup adcgrpcfg1 = {
-  FALSE,
-  ADC_GRP1_NUM_CHANNELS,
-  NULL,
-  adcerrorcallback,
-  0, 0,                         /* CR1, CR2 */
-  ADC_SMPR1_SMP_AN10(ADC_SAMPLE_1P5),
-  0,                            /* SMPR2 */
-  ADC_SQR1_NUM_CH(ADC_GRP1_NUM_CHANNELS),
-  0,                            /* SQR2 */
-  ADC_SQR3_SQ1_N(ADC_CHANNEL_IN10)
-};
+// static const ADCConversionGroup adcgrpcfg1 = {
+//   FALSE,
+//   ADC_GRP1_NUM_CHANNELS,
+//   NULL,
+//   adcerrorcallback,
+//   0, 0,                         /* CR1, CR2 */
+//   ADC_SMPR1_SMP_AN10(ADC_SAMPLE_1P5),
+//   0,                            /* SMPR2 */
+//   ADC_SQR1_NUM_CH(ADC_GRP1_NUM_CHANNELS),
+//   0,                            /* SQR2 */
+//   ADC_SQR3_SQ1_N(ADC_CHANNEL_IN10)
+// };
 
 /*
  * ADC conversion group.
  * Mode:        Continuous, 16 samples of 8 channels, SW triggered.
  * Channels:    IN10, IN11, IN10, IN11, IN10, IN11, Sensor, VRef.
  */
-static const ADCConversionGroup adcgrpcfg2 = {
-  TRUE,
-  ADC_GRP2_NUM_CHANNELS,
-  adccallback,
-  adcerrorcallback,
-  0, ADC_CR2_TSVREFE,           /* CR1, CR2 */
-  ADC_SMPR1_SMP_AN11(ADC_SAMPLE_41P5) | ADC_SMPR1_SMP_AN10(ADC_SAMPLE_41P5) |
-  ADC_SMPR1_SMP_SENSOR(ADC_SAMPLE_239P5) | ADC_SMPR1_SMP_VREF(ADC_SAMPLE_239P5),
-  0,                            /* SMPR2 */
-  ADC_SQR1_NUM_CH(ADC_GRP2_NUM_CHANNELS),
-  ADC_SQR2_SQ8_N(ADC_CHANNEL_SENSOR) | ADC_SQR2_SQ7_N(ADC_CHANNEL_VREFINT),
-  ADC_SQR3_SQ6_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ5_N(ADC_CHANNEL_IN10) |
-  ADC_SQR3_SQ4_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ3_N(ADC_CHANNEL_IN10) |
-  ADC_SQR3_SQ2_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ1_N(ADC_CHANNEL_IN10)
-};
+// static const ADCConversionGroup adcgrpcfg2 = {
+//   TRUE,
+//   ADC_GRP2_NUM_CHANNELS,
+//   adccallback,
+//   adcerrorcallback,
+//   0, ADC_CR2_TSVREFE,           /* CR1, CR2 */
+//   ADC_SMPR1_SMP_AN11(ADC_SAMPLE_41P5) | ADC_SMPR1_SMP_AN10(ADC_SAMPLE_41P5) |
+//   ADC_SMPR1_SMP_SENSOR(ADC_SAMPLE_239P5) | ADC_SMPR1_SMP_VREF(ADC_SAMPLE_239P5),
+//   0,                            /* SMPR2 */
+//   ADC_SQR1_NUM_CH(ADC_GRP2_NUM_CHANNELS),
+//   ADC_SQR2_SQ8_N(ADC_CHANNEL_SENSOR) | ADC_SQR2_SQ7_N(ADC_CHANNEL_VREFINT),
+//   ADC_SQR3_SQ6_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ5_N(ADC_CHANNEL_IN10) |
+//   ADC_SQR3_SQ4_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ3_N(ADC_CHANNEL_IN10) |
+//   ADC_SQR3_SQ2_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ1_N(ADC_CHANNEL_IN10)
+// };
 
 /*
  * Red LEDs blinker thread, times are in milliseconds.
  */
-static THD_WORKING_AREA(waThread1, 128);
-static THD_FUNCTION(Thread1, arg) {
+// static THD_WORKING_AREA(waThread1, 128);
+// static THD_FUNCTION(Thread1, arg) {
 
-  (void)arg;
+//   (void)arg;
 
-  chRegSetThreadName("blinker");
-  while (true) {
-    palClearPad(IOPORT3, GPIOC_LED);
-    chThdSleepMilliseconds(500);
-    palSetPad(IOPORT3, GPIOC_LED);
-    chThdSleepMilliseconds(500);
-  }
-}
+//   chRegSetThreadName("blinker");
+//   while (true) {
+//     palClearPad(GPIOC, GPIOC_LED);
+//     chThdSleepMilliseconds(500);
+//     palSetPad(GPIOC, GPIOC_LED);
+//     chThdSleepMilliseconds(1000);
+//   }
+// }
 
 /*
  * Application entry point.
@@ -116,41 +118,65 @@ int main(void) {
    */
   halInit();
   chSysInit();
-
+  InitDac();
   /*
    * Setting up analog inputs used by the demo.
    */
-  palSetGroupMode(GPIOC, PAL_PORT_BIT(0) | PAL_PORT_BIT(1),
-                  0, PAL_MODE_INPUT_ANALOG);
+  // palSetGroupMode(GPIOC, PAL_PORT_BIT(0) | PAL_PORT_BIT(1),
+  //                 0, PAL_MODE_INPUT_ANALOG);
 
   /*
    * Creates the blinker thread.
    */
-  chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
+  //chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
 
   /*
    * Activates the ADC1 driver and the temperature sensor.
    */
-  adcStart(&ADCD1, NULL);
+  //adcStart(&ADCD1, NULL);
 
   /*
    * Linear conversion.
    */
-  adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
-  chThdSleepMilliseconds(1000);
+  //adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
+  //chThdSleepMilliseconds(1000);
 
   /*
    * Starts an ADC continuous conversion.
    */
-  adcStartConversion(&ADCD1, &adcgrpcfg2, samples2, ADC_GRP2_BUF_DEPTH);
+  //adcStartConversion(&ADCD1, &adcgrpcfg2, samples2, ADC_GRP2_BUF_DEPTH);
 
   /*
    * Normal main() thread activity, in this demo it does nothing.
    */
+  int16_t ch1_val = 0;
+  int16_t ch2_val = 0;
+  int16_t ch1_dir = 1;
+  int16_t ch2_dir = 1;
+  chThdSleepMilliseconds(2000);
+
   while (true) {
-    if (palReadPad(GPIOA, GPIOA_USBDM)) // nonsense
-      adcStopConversion(&ADCD1);
-    chThdSleepMilliseconds(500);
+    chThdSleepMilliseconds(1);
+    ch1_val += ch1_dir*1;
+    ch2_val += ch2_dir*3;
+    if (ch1_val > DAC_OUT_MAX) {
+      ch1_val = DAC_OUT_MAX;
+      ch1_dir = -1;
+    }
+    if (ch1_val < 0) {
+      ch1_val = 0;
+      ch1_dir = 1;
+    }
+    if (ch2_val > DAC_OUT_MAX) {
+      ch2_val = DAC_OUT_MAX;
+      ch2_dir = -1;
+    }
+    if (ch2_val < 0) {
+      ch2_val = 0;
+      ch2_dir = 1;
+    }
+    TransmitSamples((uint16_t)ch1_val, (uint16_t)ch2_val);
+
   }
   return 0;
 }
