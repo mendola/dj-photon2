@@ -13,12 +13,12 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
+#include <math.h>
 
 #include "ch.h"
 #include "hal.h"
 
 #include "dac_mcp4822.h"
-
 #define ADC_GRP1_NUM_CHANNELS   1
 #define ADC_GRP1_BUF_DEPTH      8
 
@@ -154,29 +154,23 @@ int main(void) {
   int16_t ch1_dir = 1;
   int16_t ch2_dir = 1;
   chThdSleepMilliseconds(2000);
+  double x = 0.0;
+  #define PI (3.14159265)
+  #define PI_OVER_2  (PI / 2.0)
+  #define OFFSET  (DAC_OUT_MAX / 2)
+  double dx = PI / 50;
 
+  double amplitude = 0;
+  double d_amplitude = 0.001;
   while (true) {
-    chThdSleepMilliseconds(1);
-    ch1_val += ch1_dir*1;
-    ch2_val += ch2_dir*3;
-    if (ch1_val > DAC_OUT_MAX) {
-      ch1_val = DAC_OUT_MAX;
-      ch1_dir = -1;
+    amplitude += d_amplitude;
+    if (amplitude > 1.0) {
+      amplitude = 0;
     }
-    if (ch1_val < 0) {
-      ch1_val = 0;
-      ch1_dir = 1;
-    }
-    if (ch2_val > DAC_OUT_MAX) {
-      ch2_val = DAC_OUT_MAX;
-      ch2_dir = -1;
-    }
-    if (ch2_val < 0) {
-      ch2_val = 0;
-      ch2_dir = 1;
-    }
+    x += dx;
+    ch1_val = (int16_t)(sin(x) * OFFSET * amplitude) + OFFSET;
+    ch2_val = (int16_t)(sin(x + PI_OVER_2) * OFFSET) + OFFSET;
     TransmitSamples((uint16_t)ch1_val, (uint16_t)ch2_val);
-
   }
   return 0;
 }
