@@ -25,67 +25,41 @@
 #define ADC_GRP2_NUM_CHANNELS   8
 #define ADC_GRP2_BUF_DEPTH      16
 
+#define ADC_GROUP_NUM_CHANNELS   6
+#define ADC_GROUP_BUF_DEPTH      1
+
 // static adcsample_t samples1[ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH];
 // static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
+static adcsample_t g_adc_samples_buf[ADC_GROUP_NUM_CHANNELS * ADC_GROUP_BUF_DEPTH];
 
-/*
- * ADC streaming callback.
- */
-size_t nx = 0, ny = 0;
-static void adccallback(ADCDriver *adcp) {
-
-  if (adcIsBufferComplete(adcp)) {
-    nx += 1;
-  }
-  else {
-    ny += 1;
-  }
-}
-
-static void adcerrorcallback(ADCDriver *adcp, adcerror_t err) {
-
-  (void)adcp;
-  (void)err;
-}
 
 /*
  * ADC conversion group.
- * Mode:        Linear buffer, 8 samples of 1 channel, SW triggered.
- * Channels:    IN10.
+ * Mode:        Continuous, 1 sample of 6 channels, SW triggered.
+ * Channels:    IN0 - IN5
  */
-// static const ADCConversionGroup adcgrpcfg1 = {
-//   FALSE,
-//   ADC_GRP1_NUM_CHANNELS,
-//   NULL,
-//   adcerrorcallback,
-//   0, 0,                         /* CR1, CR2 */
-//   ADC_SMPR1_SMP_AN10(ADC_SAMPLE_1P5),
-//   0,                            /* SMPR2 */
-//   ADC_SQR1_NUM_CH(ADC_GRP1_NUM_CHANNELS),
-//   0,                            /* SQR2 */
-//   ADC_SQR3_SQ1_N(ADC_CHANNEL_IN10)
-// };
-
-/*
- * ADC conversion group.
- * Mode:        Continuous, 16 samples of 8 channels, SW triggered.
- * Channels:    IN10, IN11, IN10, IN11, IN10, IN11, Sensor, VRef.
- */
-// static const ADCConversionGroup adcgrpcfg2 = {
-//   TRUE,
-//   ADC_GRP2_NUM_CHANNELS,
-//   adccallback,
-//   adcerrorcallback,
-//   0, ADC_CR2_TSVREFE,           /* CR1, CR2 */
-//   ADC_SMPR1_SMP_AN11(ADC_SAMPLE_41P5) | ADC_SMPR1_SMP_AN10(ADC_SAMPLE_41P5) |
-//   ADC_SMPR1_SMP_SENSOR(ADC_SAMPLE_239P5) | ADC_SMPR1_SMP_VREF(ADC_SAMPLE_239P5),
-//   0,                            /* SMPR2 */
-//   ADC_SQR1_NUM_CH(ADC_GRP2_NUM_CHANNELS),
-//   ADC_SQR2_SQ8_N(ADC_CHANNEL_SENSOR) | ADC_SQR2_SQ7_N(ADC_CHANNEL_VREFINT),
-//   ADC_SQR3_SQ6_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ5_N(ADC_CHANNEL_IN10) |
-//   ADC_SQR3_SQ4_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ3_N(ADC_CHANNEL_IN10) |
-//   ADC_SQR3_SQ2_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ1_N(ADC_CHANNEL_IN10)
-// };
+static const ADCConversionGroup g_adc_grp_config = {
+  TRUE,                                 /* circular */
+  ADC_GROUP_NUM_CHANNELS,              /* num_channels */
+  NULL,                                /* end_cb   */
+  NULL,                                /* error_cb */
+  0, 0,                                /* CR1, CR2  */
+  0,                                   /* SMPR1 (ch 10-17) */
+  ADC_SMPR2_SMP_AN0(ADC_SAMPLE_41P5)   /* SMPR2*/
+    | ADC_SMPR2_SMP_AN1(ADC_SAMPLE_41P5)
+    | ADC_SMPR2_SMP_AN2(ADC_SAMPLE_41P5)
+    | ADC_SMPR2_SMP_AN3(ADC_SAMPLE_41P5)
+    | ADC_SMPR2_SMP_AN4(ADC_SAMPLE_41P5)
+    | ADC_SMPR2_SMP_AN5(ADC_SAMPLE_41P5),
+  ADC_SQR1_NUM_CH(ADC_GROUP_NUM_CHANNELS), /* sqr1 sequence steps 13-16, seq len */
+  0,                                       /* sqr2 sequence steps 7-12 */
+  ADC_SQR3_SQ1_N(ADC_CHANNEL_IN0)         /* sqr3 sequence steps 1-6  */
+    | ADC_SQR3_SQ2_N(ADC_CHANNEL_IN1)
+    | ADC_SQR3_SQ3_N(ADC_CHANNEL_IN2)
+    | ADC_SQR3_SQ4_N(ADC_CHANNEL_IN3)
+    | ADC_SQR3_SQ5_N(ADC_CHANNEL_IN4)
+    | ADC_SQR3_SQ6_N(ADC_CHANNEL_IN5)
+};
 
 /*
  * Red LEDs blinker thread, times are in milliseconds.
@@ -144,15 +118,13 @@ int main(void) {
   /*
    * Starts an ADC continuous conversion.
    */
-  //adcStartConversion(&ADCD1, &adcgrpcfg2, samples2, ADC_GRP2_BUF_DEPTH);
+  adcConvert(&ADCD1, &g_adc_grp_config, g_adc_samples_buf, ADC_GROUP_BUF_DEPTH);
 
   /*
    * Normal main() thread activity, in this demo it does nothing.
    */
   int16_t ch1_val = 0;
   int16_t ch2_val = 0;
-  int16_t ch1_dir = 1;
-  int16_t ch2_dir = 1;
   chThdSleepMilliseconds(2000);
   double x = 0.0;
   #define PI (3.14159265)
