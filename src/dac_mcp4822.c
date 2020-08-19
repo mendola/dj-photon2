@@ -67,43 +67,6 @@
                           | SPI_CR2_TX_BUF_EMPTY_INT_EN)
 
 
-/*
- * Maximum speed SPI configuration (18MHz, CPHA=0, CPOL=0, MSb first).
- */
-static const SPIConfig hs_spicfg = {
-  false,
-  NULL,
-  GPIOB,
-  DAC_PIN_CS,
-  SPI_CR1_CONFIG,
-  SPI_CR2_CONFIG
-};
-// static const SPIConfig hs_spicfg = {
-//   false,
-//   NULL,
-//   GPIOB,
-//   DAC_PIN_CS,
-//   0,
-//   0
-// };
-
-/*
- * Red LEDs blinker thread, times are in milliseconds.
- */
-// static THD_WORKING_AREA(waDacThread, 128);
-// static THD_FUNCTION(DacThreadFn, arg) {
-
-//   (void)arg;
-
-//   chRegSetThreadName("dac_thread");
-//   while (true) {
-//     palClearPad(IOPORT3, GPIOC_LED);
-//     chThdSleepMilliseconds(500);
-//     palSetPad(IOPORT3, GPIOC_LED);
-//     chThdSleepMilliseconds(500);
-//   }
-// }
-
 void InitDac(void) {
   /*
    * SPI1 I/O pins setup.
@@ -113,21 +76,9 @@ void InitDac(void) {
   palSetPadMode(GPIOB, 15, PAL_MODE_OUTPUT_PUSHPULL);     /* MOSI.*/
   palSetPadMode(GPIOB, 12, PAL_MODE_OUTPUT_PUSHPULL);
   palSetPad(GPIOB, 12);
-
-  // Make sure pins are set up right in board.h
-  //spiAcquireBus(&SPID2);              /* Acquire ownership of the bus.    */
-
-  //spiStart(&SPID2, &hs_spicfg);       /* Setup transfer parameters.       */
-  //spiReleaseBus(&SPID2);              /* Ownership release.  */
 }
 
 static uint16_t MakeCommandPacket(uint16_t value, const bool is_left) {
-  // if (value < -1.0) {
-  //   value = -1.0;
-  // } else if (value > 1.0) {
-  //   value = 1.0;
-  // }
-  //value += 1.0;
   const uint16_t twelve_bit_cmd = (uint16_t)(value);// * NORMALIZED_TO_12BIT_FACTOR);
   const uint16_t gain_selection = 1 << 13;
   const uint16_t channel_bit = is_left ? (1 << 15) : 0;

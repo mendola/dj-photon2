@@ -19,6 +19,8 @@
 #include "hal.h"
 
 #include "dac_mcp4822.h"
+#include "engine.h"
+
 #define ADC_GRP1_NUM_CHANNELS   1
 #define ADC_GRP1_BUF_DEPTH      8
 
@@ -28,10 +30,25 @@
 #define ADC_GROUP_NUM_CHANNELS   5
 #define ADC_GROUP_BUF_DEPTH      1
 
+typedef enum adcindext {
+  BUF_IDX_CV_INPUT_L = 0,
+  BUF_IDX_CV_INPUT_C = 1,
+  BUF_IDX_CV_INPUT_R = 2,
+  BUF_IDX_AUDIO_INPUT_L = 3,
+  BUF_IDX_AUDIO_INPUT_R = 4
+} adc_index_t;
+
 // static adcsample_t samples1[ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH];
 // static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
 static adcsample_t g_adc_samples_buf[ADC_GROUP_NUM_CHANNELS * ADC_GROUP_BUF_DEPTH];
 
+void GetSamples(engine_inputs_t* samples_in, adcsample_t* sample_buf) {
+  samples_in->audio_in_left = g_adc_samples_buf[BUF_IDX_AUDIO_INPUT_L];
+  samples_in->audio_in_right = g_adc_samples_buf[BUF_IDX_AUDIO_INPUT_R];
+  samples_in->cv_in_left = g_adc_samples_buf[BUF_IDX_CV_INPUT_L];
+  samples_in->cv_in_middle = g_adc_samples_buf[BUF_IDX_CV_INPUT_C];
+  samples_in->cv_in_right = g_adc_samples_buf[BUF_IDX_CV_INPUT_R];
+}
 
 /*
  * ADC conversion group.
@@ -59,22 +76,49 @@ static const ADCConversionGroup g_adc_grp_config = {
     | ADC_SQR3_SQ5_N(ADC_CHANNEL_IN7)
 };
 
-/*
- * Red LEDs blinker thread, times are in milliseconds.
- */
-// static THD_WORKING_AREA(waThread1, 128);
-// static THD_FUNCTION(Thread1, arg) {
+void SetupPins(void) {
+ // Sets up DAC pins
+  InitDac();
 
-//   (void)arg;
+  // Inputs
+  palSetPadMode(GPIOA, 3, PAL_MODE_INPUT_ANALOG);
+  palSetPadMode(GPIOA, 4, PAL_MODE_INPUT_ANALOG);
+  palSetPadMode(GPIOA, 5, PAL_MODE_INPUT_ANALOG);
+  palSetPadMode(GPIOA, 6, PAL_MODE_INPUT_ANALOG);
+  palSetPadMode(GPIOA, 7, PAL_MODE_INPUT_ANALOG);
 
-//   chRegSetThreadName("blinker");
-//   while (true) {
-//     palClearPad(GPIOC, GPIOC_LED);
-//     chThdSleepMilliseconds(500);
-//     palSetPad(GPIOC, GPIOC_LED);
-//     chThdSleepMilliseconds(1000);
-//   }
-// }
+  // Outputs
+  palSetPadMode(GPIOB, 3, PAL_MODE_OUTPUT_PUSHPULL);
+  palSetPadMode(GPIOB, 6, PAL_MODE_OUTPUT_PUSHPULL);
+  palSetPadMode(GPIOB, 9, PAL_MODE_OUTPUT_PUSHPULL);
+}
+
+
+void SetLaserPwm(const int16_t pwm_output_r, const int16_t pwm_output_g, const int16_t pwm_output_b) {
+  if (pwm_output_r) {
+    palSetPad(GPIOB, 3);
+  } else {
+    palClearPad(GPIOB, 3);
+  }
+
+  if (pwm_output_g) {
+    palSetPad(GPIOB, 6);
+  } else {
+    palClearPad(GPIOB, 6);
+  }
+
+  if (pwm_output_b) {
+    palSetPad(GPIOB, 9);
+  } else {
+    palClearPad(GPIOB, 9);
+  }
+}
+
+
+void SetLaserOutputs(engine_outputs_t* engine_outputs) {
+  TransmitSamples(engine_outputs->position_output_x, engine_outputs->position_output_y);
+  SetLaserPwm(engine_outputs->laser_pwm_output_r, engine_outputs->laser_pwm_output_g, engine_outputs->laser_pwm_output_b);
+}
 
 /*
  * Application entry point.
@@ -90,39 +134,9 @@ int main(void) {
    */
   halInit();
   chSysInit();
-  InitDac();
-  palSetPadMode(GPIOA, 3, PAL_MODE_INPUT_ANALOG);
-  palSetPadMode(GPIOA, 4, PAL_MODE_INPUT_ANALOG);
-  palSetPadMode(GPIOA, 5, PAL_MODE_INPUT_ANALOG);
-  palSetPadMode(GPIOA, 6, PAL_MODE_INPUT_ANALOG);
-  palSetPadMode(GPIOA, 7, PAL_MODE_INPUT_ANALOG);
-
-  palSetPadMode(GPIOB, 3, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetPadMode(GPIOB, 6, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetPadMode(GPIOB, 9, PAL_MODE_OUTPUT_PUSHPULL);
+  SetupPins();
 
   adcStart(&ADCD1, NULL);
-
-  /*
-   * Setting up analog inputs used by the demo.
-   */
-  // palSetGroupMode(GPIOC, PAL_PORT_BIT(0) | PAL_PORT_BIT(1),
-  //                 0, PAL_MODE_INPUT_ANALOG);
-
-  /*
-   * Creates the blinker thread.
-   */
-  //chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
-
-  /*
-   * Activates the ADC1 driver and the temperature sensor.
-   */
-
-  /*
-   * Linear conversion.
-   */
-  //adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
-  //chThdSleepMilliseconds(1000);
 
   /*
    * Starts an ADC continuous conversion.
@@ -140,28 +154,12 @@ int main(void) {
   palSetPad(GPIOB, 9);
 
   while (true) {
+    engine_inputs_t inputs;
+    engine_outputs_t outputs;
     adcConvert(&ADCD1, &g_adc_grp_config, g_adc_samples_buf, ADC_GROUP_BUF_DEPTH);
-    uint16_t left = g_adc_samples_buf[3];
-    uint16_t right = g_adc_samples_buf[4];
-    TransmitSamples(left, right);
-}
-  // double x = 0.0;
-  // #define PI (3.14159265)
-  // #define PI_OVER_2  (PI / 2.0)
-  // #define OFFSET  (DAC_OUT_MAX / 2)
-  // double dx = PI / 50;
-
-  // double amplitude = 0;
-  // double d_amplitude = 0.001;
-  // while (true) {
-  //   amplitude += d_amplitude;
-  //   if (amplitude > 1.0) {
-  //     amplitude = 0;
-  //   }
-  //   x += dx;
-  //   ch1_val = (int16_t)(sin(x) * OFFSET * amplitude) + OFFSET;
-  //   ch2_val = (int16_t)(sin(x + PI_OVER_2) * OFFSET) + OFFSET;
-  //   TransmitSamples((uint16_t)ch1_val, (uint16_t)ch2_val);
-  // }
+    GetSamples(&inputs, &g_adc_samples_buf);
+    RunEngine(&inputs, &outputs);
+    SetLaserOutputs(&outputs);    
+  }
   return 0;
 }
