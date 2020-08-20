@@ -3,24 +3,25 @@
 
 #include <stdint.h>
 
-#define ADC_IN_MAX 4096
+#define LASER_POS_MAX 4095
+#define ADC_IN_MAX 4095
 #define ADC_IN_MIDPOINT  (ADC_IN_MAX / 2)
 #define AUDIO_IN_LEFT_MAX
 
 typedef struct engineinputs {
     int16_t audio_in_left;
     int16_t audio_in_right;
-    uint16_t cv_in_left;
-    uint16_t cv_in_middle;
-    uint16_t cv_in_right;
+    int16_t cv_in_left;
+    int16_t cv_in_middle;
+    int16_t cv_in_right;
 } engine_inputs_t;
 
 typedef struct engineoutputs {
-    uint16_t position_output_x;
-    uint16_t position_output_y;
-    uint16_t laser_pwm_output_r;
-    uint16_t laser_pwm_output_g;
-    uint16_t laser_pwm_output_b;
+    int16_t position_output_x;
+    int16_t position_output_y;
+    int16_t laser_pwm_output_r;
+    int16_t laser_pwm_output_g;
+    int16_t laser_pwm_output_b;
 } engine_outputs_t;
 
 typedef struct normalized_inputs {

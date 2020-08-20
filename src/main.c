@@ -43,11 +43,11 @@ typedef enum adcindext {
 static adcsample_t g_adc_samples_buf[ADC_GROUP_NUM_CHANNELS * ADC_GROUP_BUF_DEPTH];
 
 void GetSamples(engine_inputs_t* samples_in, adcsample_t* sample_buf) {
-  samples_in->audio_in_left = g_adc_samples_buf[BUF_IDX_AUDIO_INPUT_L];
-  samples_in->audio_in_right = g_adc_samples_buf[BUF_IDX_AUDIO_INPUT_R];
-  samples_in->cv_in_left = g_adc_samples_buf[BUF_IDX_CV_INPUT_L];
-  samples_in->cv_in_middle = g_adc_samples_buf[BUF_IDX_CV_INPUT_C];
-  samples_in->cv_in_right = g_adc_samples_buf[BUF_IDX_CV_INPUT_R];
+  samples_in->audio_in_left = sample_buf[BUF_IDX_AUDIO_INPUT_L];
+  samples_in->audio_in_right = sample_buf[BUF_IDX_AUDIO_INPUT_R];
+  samples_in->cv_in_left = sample_buf[BUF_IDX_CV_INPUT_L];
+  samples_in->cv_in_middle = sample_buf[BUF_IDX_CV_INPUT_C];
+  samples_in->cv_in_right = sample_buf[BUF_IDX_CV_INPUT_R];
 }
 
 /*
@@ -95,19 +95,19 @@ void SetupPins(void) {
 
 
 void SetLaserPwm(const int16_t pwm_output_r, const int16_t pwm_output_g, const int16_t pwm_output_b) {
-  if (pwm_output_r) {
+  if (pwm_output_r > 0) {
     palSetPad(GPIOB, 3);
   } else {
     palClearPad(GPIOB, 3);
   }
 
-  if (pwm_output_g) {
+  if (pwm_output_g > 0) {
     palSetPad(GPIOB, 6);
   } else {
     palClearPad(GPIOB, 6);
   }
 
-  if (pwm_output_b) {
+  if (pwm_output_b > 0) {
     palSetPad(GPIOB, 9);
   } else {
     palClearPad(GPIOB, 9);
@@ -134,7 +134,9 @@ int main(void) {
    */
   halInit();
   chSysInit();
+
   SetupPins();
+
 
   adcStart(&ADCD1, NULL);
 
@@ -146,8 +148,6 @@ int main(void) {
   /*
    * Normal main() thread activity, in this demo it does nothing.
    */
-  int16_t ch1_val = 0;
-  int16_t ch2_val = 0;
   chThdSleepMilliseconds(2000);
   palSetPad(GPIOB, 3);
   palSetPad(GPIOB, 6);
@@ -157,7 +157,7 @@ int main(void) {
     engine_inputs_t inputs;
     engine_outputs_t outputs;
     adcConvert(&ADCD1, &g_adc_grp_config, g_adc_samples_buf, ADC_GROUP_BUF_DEPTH);
-    GetSamples(&inputs, &g_adc_samples_buf);
+    GetSamples(&inputs, g_adc_samples_buf);
     RunEngine(&inputs, &outputs);
     SetLaserOutputs(&outputs);    
   }

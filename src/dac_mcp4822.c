@@ -78,7 +78,10 @@ void InitDac(void) {
   palSetPad(GPIOB, 12);
 }
 
-static uint16_t MakeCommandPacket(uint16_t value, const bool is_left) {
+static uint16_t MakeCommandPacket(int16_t value, const bool is_left) {
+  if (value < 0) {
+    value = 0;
+  }
   const uint16_t twelve_bit_cmd = (uint16_t)(value);// * NORMALIZED_TO_12BIT_FACTOR);
   const uint16_t gain_selection = 1 << 13;
   const uint16_t channel_bit = is_left ? (1 << 15) : 0;
@@ -108,7 +111,7 @@ void SendFrameManually(uint16_t frame) {
   for (j =0; j < 10; ++j);
 }
 
-void TransmitSamples(const uint16_t ch1_out, const uint16_t ch2_out) {
+void TransmitSamples(const int16_t ch1_out, const int16_t ch2_out) {
   volatile uint16_t both_samples[2] = {0};
   both_samples[0] = MakeCommandPacket(ch1_out, true);
   both_samples[1] = MakeCommandPacket(ch2_out, false);

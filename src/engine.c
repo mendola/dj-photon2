@@ -1,18 +1,22 @@
 #include <ch.h> // For NULL
 #include "engine.h"
+#include "math.h"
 
-typedef void (*modeFunctor)(normalized_inputs_t* inputs, normalized_outputs_t* outputs);
+#define PI (3.14159265)
+#define PI_OVER_2  (PI / 2.0)
+
+typedef void (*modeFunctor)(engine_inputs_t* inputs, engine_outputs_t* outputs);
 
 typedef enum generatormode{
     MODE_AUDIO_STEREO = 0,
     MODE_AUDIO_MONO_WAVEFORM,
     MODE_SPIRAL,
-    MODE_RECTANGLE,
-    MODE_FULL_SCAN,
+    MODE_MESSED_UP_SPIRAL,
+    // MODE_RECTANGLE,
+    // MODE_FULL_SCAN,
 
     NUM_MODES
 } GeneratorModeEnum;
-
 
 const float REGION_SIZE = 1.0 /  (float)NUM_MODES;
 
@@ -23,7 +27,7 @@ typedef struct modemixt {
     float mix_ratio;
 } mode_mix_t;
 
-SetModeMix(mode_mix_t* mode_mix, float selection_point) {
+void SetModeMix(mode_mix_t* mode_mix, float selection_point) {
     if (selection_point < REGION_SIZE) {
         mode_mix->mode_a = MODE_AUDIO_STEREO;
         mode_mix->mode_b = MODE_AUDIO_STEREO;
@@ -31,7 +35,7 @@ SetModeMix(mode_mix_t* mode_mix, float selection_point) {
     } else if (selection_point < REGION_SIZE * 2.0) {
         mode_mix->mode_a = MODE_AUDIO_STEREO;
         mode_mix->mode_b = MODE_AUDIO_MONO_WAVEFORM;
-        mode_mix->mix_ratio = (selection_point - REGION_SIZE) / REGION_SIZE;
+        mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE) / REGION_SIZE;
     } else if (selection_point < REGION_SIZE * 3) {
         mode_mix->mode_a = MODE_AUDIO_MONO_WAVEFORM;
         mode_mix->mode_b = MODE_AUDIO_MONO_WAVEFORM;
@@ -39,51 +43,118 @@ SetModeMix(mode_mix_t* mode_mix, float selection_point) {
     } else if (selection_point < REGION_SIZE * 4) {
         mode_mix->mode_a = MODE_AUDIO_MONO_WAVEFORM;
         mode_mix->mode_b = MODE_SPIRAL;
-        mode_mix->mix_ratio = (selection_point - REGION_SIZE*4) / REGION_SIZE;
-    } else if (selection_point < REGION_SIZE * 5) {
+        mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE*3) / REGION_SIZE;
+    } else if (selection_point < REGION_SIZE * 5){//if (selection_point < REGION_SIZE * 5) {
         mode_mix->mode_a = MODE_SPIRAL;
         mode_mix->mode_b = MODE_SPIRAL;
         mode_mix->mix_ratio = 0;
     } else if (selection_point < REGION_SIZE * 6) {
         mode_mix->mode_a = MODE_SPIRAL;
-        mode_mix->mode_b = MODE_RECTANGLE;
-        mode_mix->mix_ratio = (selection_point - REGION_SIZE*6) / REGION_SIZE;
-    } else if (selection_point < REGION_SIZE * 7) {
-        mode_mix->mode_a = MODE_RECTANGLE;
-        mode_mix->mode_b = MODE_RECTANGLE;
+        mode_mix->mode_b = MODE_MESSED_UP_SPIRAL;
+        mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE*5) / REGION_SIZE;
+    } else {//if (selection_point < REGION_SIZE * 5) {
+        mode_mix->mode_a = MODE_MESSED_UP_SPIRAL;
+        mode_mix->mode_b = MODE_MESSED_UP_SPIRAL;
         mode_mix->mix_ratio = 0;
-    } else if (selection_point < REGION_SIZE * 8) {
-        mode_mix->mode_a = MODE_RECTANGLE;
-        mode_mix->mode_b = MODE_FULL_SCAN;
-        mode_mix->mix_ratio = (selection_point - REGION_SIZE*8) / REGION_SIZE;
-    } else {
-        mode_mix->mode_a = MODE_FULL_SCAN;
-        mode_mix->mode_b = MODE_FULL_SCAN;
-        mode_mix->mix_ratio = 0;   
     }
+//     } else if (selection_point < REGION_SIZE * 6) {
+//         mode_mix->mode_a = MODE_SPIRAL;
+//         mode_mix->mode_b = MODE_RECTANGLE;
+//         mode_mix->mix_ratio = (selection_point - REGION_SIZE*6) / REGION_SIZE;
+//     } else if (selection_point < REGION_SIZE * 7) {
+//         mode_mix->mode_a = MODE_RECTANGLE;
+//         mode_mix->mode_b = MODE_RECTANGLE;
+//         mode_mix->mix_ratio = 0;
+//     } else if (selection_point < REGION_SIZE * 8) {
+//         mode_mix->mode_a = MODE_RECTANGLE;
+//         mode_mix->mode_b = MODE_FULL_SCAN;
+//         mode_mix->mix_ratio = (selection_point - REGION_SIZE*8) / REGION_SIZE;
+//     } else {
+//         mode_mix->mode_a = MODE_FULL_SCAN;
+//         mode_mix->mode_b = MODE_FULL_SCAN;
+//         mode_mix->mix_ratio = 0;   
+//     }
 }
 
 //MODE_AUDIO_STEREO
-void operator_mode_audio_stereo(normalized_inputs_t* inputs, normalized_outputs_t* outputs) {
+void operator_mode_audio_stereo(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     outputs->position_output_x = inputs->audio_in_left;
     outputs->position_output_y = inputs->audio_in_right;
-    outputs->laser_pwm_output_r = inputs->cv_in_left;
-    outputs->laser_pwm_output_g = 0;
-    outputs->laser_pwm_output_b = inputs->cv_in_right;
+    outputs->laser_pwm_output_r = 1;
+    outputs->laser_pwm_output_g = 1;
+    outputs->laser_pwm_output_b = 1;
 }
 
 // MODE_AUDIO_MONO_WAVEFORM
-void operator_mode_audio_mono(normalized_inputs_t* inputs, normalized_outputs_t* outputs) {
-    static float x_value = 0;
-    outputs->position_output_x = inputs->audio_in_left;
+void operator_mode_audio_mono(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+    static int16_t x_value = 0;
+    int16_t x_rate = inputs->cv_in_left;
+    x_value += x_rate;
+    x_value = x_value % LASER_POS_MAX;
+    outputs->position_output_x = x_value;
     outputs->position_output_y = inputs->audio_in_right;
-    outputs->laser_pwm_output_r = inputs->cv_in_left;
-    outputs->laser_pwm_output_g = 0;
-    outputs->laser_pwm_output_b = inputs->cv_in_right;
+    outputs->laser_pwm_output_r = 1;
+    outputs->laser_pwm_output_g = 1;
+    outputs->laser_pwm_output_b = 1;
+}
+
+// MODE_SPIRAL
+void operator_mode_messed_up_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+    static int16_t x_val = 0;
+    static int16_t y_val = 0;
+    static float t = 0;
+    static float amplitude = 0;
+
+    float dt = (float)inputs->cv_in_left / 10000;
+    float d_amplitude = (float)inputs->cv_in_right / 100000; // Arbitrary denom
+
+    amplitude += d_amplitude;
+    if (amplitude > 1.0) {
+        amplitude = 0.0;
+    }
+    t += dt;
+    x_val = (int16_t)(sin(t) * LASER_POS_MAX * amplitude) + LASER_POS_MAX;
+    y_val = (int16_t)(sin(t + PI_OVER_2) * LASER_POS_MAX) + LASER_POS_MAX;
+
+    outputs->position_output_x = x_val;
+    outputs->position_output_y = y_val;
+    outputs->laser_pwm_output_r = 1;
+    outputs->laser_pwm_output_g = 1;
+    outputs->laser_pwm_output_b = 1;
+}
+
+void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+    static int16_t x_val = 0;
+    static int16_t y_val = 0;
+    static float t = 0;
+    static float amplitude = 0;
+
+    float dt = (float)inputs->cv_in_left / 10000;
+    static float sign = 1.0;
+    float d_amplitude = (float)inputs->cv_in_right / 100000; // Arbitrary denom
+
+    amplitude += d_amplitude * sign;
+    if (amplitude > 1.0) {
+        sign = -1.0;
+    } else if (amplitude < 0.0) {
+        sign = 1.0;
+    }
+    t += dt;
+    x_val = (int16_t)(sin(t) * (float)ADC_IN_MIDPOINT * amplitude) + ADC_IN_MIDPOINT;
+    y_val = (int16_t)(cos(t) * (float)ADC_IN_MIDPOINT) + ADC_IN_MIDPOINT;
+
+    outputs->position_output_x = x_val;
+    outputs->position_output_y = y_val;
+    outputs->laser_pwm_output_r = 1;
+    outputs->laser_pwm_output_g = 1;
+    outputs->laser_pwm_output_b = 1;
 }
 
 modeFunctor g_mode_functors[NUM_MODES] = {
-    &operator_mode_audio_stereo
+    &operator_mode_audio_stereo,
+    &operator_mode_audio_mono,
+    &operator_mode_spiral,
+    &operator_mode_messed_up_spiral
 };
 
 normalized_inputs_t NormalizeInputs(engine_inputs_t* inputs) {
@@ -100,9 +171,9 @@ engine_outputs_t DenormalizeOutputs(normalized_outputs_t* outputs) {
     engine_outputs_t result;
     result.position_output_x = (int16_t)(outputs->position_output_x *  (float)ADC_IN_MAX) + ADC_IN_MIDPOINT;
     result.position_output_x = (int16_t)(outputs->position_output_x *  (float)ADC_IN_MAX) + ADC_IN_MIDPOINT;
-    result.laser_pwm_output_r = (uint16_t)(outputs->laser_pwm_output_r * (float)ADC_IN_MAX);
-    result.laser_pwm_output_g = (uint16_t)(outputs->laser_pwm_output_g * (float)ADC_IN_MAX);
-    result.laser_pwm_output_b = (uint16_t)(outputs->laser_pwm_output_b * (float)ADC_IN_MAX);
+    result.laser_pwm_output_r = (int16_t)(outputs->laser_pwm_output_r * (float)ADC_IN_MAX);
+    result.laser_pwm_output_g = (int16_t)(outputs->laser_pwm_output_g * (float)ADC_IN_MAX);
+    result.laser_pwm_output_b = (int16_t)(outputs->laser_pwm_output_b * (float)ADC_IN_MAX);
     return result;
 }
 
@@ -127,44 +198,34 @@ normalized_outputs_t MixNormedOutputs(normalized_outputs_t* out_a, normalized_ou
     return result;
 }
 
+engine_outputs_t MixEngineOutputs(engine_outputs_t* out_a, engine_outputs_t* out_b, float ratio) {
+    engine_outputs_t result;
+    const float ratio_complement = 1.0 - ratio;
+    result.position_output_x = (int16_t)((float)out_a->position_output_x*ratio + (float)out_b->position_output_x*ratio_complement);
+    result.position_output_y = (int16_t)((float)out_a->position_output_y*ratio + (float)out_b->position_output_y*ratio_complement);
+    result.laser_pwm_output_r = (int16_t)((float)out_a->laser_pwm_output_r*ratio + (float)out_b->laser_pwm_output_r*ratio_complement);
+    result.laser_pwm_output_g = (int16_t)((float)out_a->laser_pwm_output_g*ratio + (float)out_b->laser_pwm_output_g*ratio_complement);
+    result.laser_pwm_output_b = (int16_t)((float)out_a->laser_pwm_output_b*ratio + (float)out_b->laser_pwm_output_b*ratio_complement);
+    return result;
+}
 
 void RunEngine(engine_inputs_t* inputs, engine_outputs_t* outputs) {
-    const float generator_selection_point = (float)inputs->cv_in_middle / (float)ADC_IN_MAX;
+    const float generator_selection_point = (float)inputs->cv_in_middle / (float)2048;
 
     mode_mix_t mix;
-    normalized_inputs_t norm_inputs = NormalizeInputs(inputs);
-    normalized_outputs_t norm_outputs_a;
-    normalized_outputs_t norm_outputs_b;
-
+    // normalized_inputs_t norm_inputs = NormalizeInputs(inputs);
+    // normalized_outputs_t norm_outputs_a;
+    // normalized_outputs_t norm_outputs_b;
+    engine_outputs_t outputs_a;
+    engine_outputs_t outputs_b;
     SetModeMix(&mix, generator_selection_point);
     modeFunctor functor_a = g_mode_functors[(uint8_t)mix.mode_a];
     modeFunctor functor_b = g_mode_functors[(uint8_t)mix.mode_b];
     
     if (functor_a != NULL && functor_b != NULL) {
-        functor_a(&norm_inputs, &norm_outputs_a);
-        functor_b(&norm_inputs, &norm_outputs_b);
+        functor_a(inputs, &outputs_a);
+        functor_b(inputs, &outputs_b);
     }
 
-    normalized_outputs_t mixed_outputs = MixNormedOutputs(&norm_outputs_a, &norm_outputs_b, mix.mix_ratio);
-
-    *outputs = DenormalizeOutputs(&mixed_outputs);
-
-      // double x = 0.0;
-  // #define PI (3.14159265)
-  // #define PI_OVER_2  (PI / 2.0)
-  // #define OFFSET  (DAC_OUT_MAX / 2)
-  // double dx = PI / 50;
-
-  // double amplitude = 0;
-  // double d_amplitude = 0.001;
-  // while (true) {
-  //   amplitude += d_amplitude;
-  //   if (amplitude > 1.0) {
-  //     amplitude = 0;
-  //   }
-  //   x += dx;
-  //   ch1_val = (int16_t)(sin(x) * OFFSET * amplitude) + OFFSET;
-  //   ch2_val = (int16_t)(sin(x + PI_OVER_2) * OFFSET) + OFFSET;
-  //   TransmitSamples((uint16_t)ch1_val, (uint16_t)ch2_val);
-  // }
+    *outputs = MixEngineOutputs(&outputs_a, &outputs_b, mix.mix_ratio);
 }
