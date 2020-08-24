@@ -95,23 +95,27 @@ void SetupPins(void) {
 
 
 void SetLaserPwm(const int16_t pwm_output_r, const int16_t pwm_output_g, const int16_t pwm_output_b) {
-  if (pwm_output_r > 0) {
+  // if (pwm_output_r > 0) {
+  //   palSetPad(GPIOB, 3);
+  // } else {
+  //   palClearPad(GPIOB, 3);
+  // }
+
+  // if (pwm_output_g > 0) {
+  //   palSetPad(GPIOB, 6);
+  // } else {
+  //   palClearPad(GPIOB, 6);
+  // }
+
+  // if (pwm_output_b > 0) {
+  //   palSetPad(GPIOB, 9);
+  // } else {
+  //   palClearPad(GPIOB, 9);
+  // }
     palSetPad(GPIOB, 3);
-  } else {
-    palClearPad(GPIOB, 3);
-  }
-
-  if (pwm_output_g > 0) {
     palSetPad(GPIOB, 6);
-  } else {
-    palClearPad(GPIOB, 6);
-  }
-
-  if (pwm_output_b > 0) {
     palSetPad(GPIOB, 9);
-  } else {
-    palClearPad(GPIOB, 9);
-  }
+
 }
 
 
@@ -134,6 +138,10 @@ int main(void) {
    */
   halInit();
   chSysInit();
+
+  // GPIO PB3 is by default used for SWD output. Turn it off so we can use PB3 as GPIO.
+  AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_Msk;
+  AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_DISABLEZ
 
   SetupPins();
 
