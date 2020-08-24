@@ -10,9 +10,10 @@ typedef void (*modeFunctor)(engine_inputs_t* inputs, engine_outputs_t* outputs);
 typedef enum generatormode{
     MODE_AUDIO_STEREO = 0,
     MODE_AUDIO_MONO_WAVEFORM,
-    MODE_SPIRAL,
+    MODE_SPINNING_COIN,
     MODE_MESSED_UP_SPIRAL,
-    // MODE_RECTANGLE,
+    MODE_RECTANGLE,
+    // MODE_SPIRAL
     // MODE_FULL_SCAN,
 
     NUM_MODES
@@ -42,29 +43,29 @@ void SetModeMix(mode_mix_t* mode_mix, float selection_point) {
         mode_mix->mix_ratio = 0;
     } else if (selection_point < REGION_SIZE * 4) {
         mode_mix->mode_a = MODE_AUDIO_MONO_WAVEFORM;
-        mode_mix->mode_b = MODE_SPIRAL;
+        mode_mix->mode_b = MODE_SPINNING_COIN;
         mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE*3) / REGION_SIZE;
     } else if (selection_point < REGION_SIZE * 5){//if (selection_point < REGION_SIZE * 5) {
-        mode_mix->mode_a = MODE_SPIRAL;
-        mode_mix->mode_b = MODE_SPIRAL;
+        mode_mix->mode_a = MODE_SPINNING_COIN;
+        mode_mix->mode_b = MODE_SPINNING_COIN;
         mode_mix->mix_ratio = 0;
     } else if (selection_point < REGION_SIZE * 6) {
-        mode_mix->mode_a = MODE_SPIRAL;
+        mode_mix->mode_a = MODE_SPINNING_COIN;
         mode_mix->mode_b = MODE_MESSED_UP_SPIRAL;
         mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE*5) / REGION_SIZE;
-    } else {//if (selection_point < REGION_SIZE * 5) {
+    } else if (selection_point < REGION_SIZE * 7) {
         mode_mix->mode_a = MODE_MESSED_UP_SPIRAL;
         mode_mix->mode_b = MODE_MESSED_UP_SPIRAL;
         mode_mix->mix_ratio = 0;
+    } else if (selection_point < REGION_SIZE * 8) {
+        mode_mix->mode_a = MODE_MESSED_UP_SPIRAL;
+        mode_mix->mode_b = MODE_RECTANGLE;
+        mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE*7) / REGION_SIZE;
+    } else {//if (selection_point < REGION_SIZE * 7) {
+        mode_mix->mode_a = MODE_RECTANGLE;
+        mode_mix->mode_b = MODE_RECTANGLE;
+        mode_mix->mix_ratio = 0;
     }
-//     } else if (selection_point < REGION_SIZE * 6) {
-//         mode_mix->mode_a = MODE_SPIRAL;
-//         mode_mix->mode_b = MODE_RECTANGLE;
-//         mode_mix->mix_ratio = (selection_point - REGION_SIZE*6) / REGION_SIZE;
-//     } else if (selection_point < REGION_SIZE * 7) {
-//         mode_mix->mode_a = MODE_RECTANGLE;
-//         mode_mix->mode_b = MODE_RECTANGLE;
-//         mode_mix->mix_ratio = 0;
 //     } else if (selection_point < REGION_SIZE * 8) {
 //         mode_mix->mode_a = MODE_RECTANGLE;
 //         mode_mix->mode_b = MODE_FULL_SCAN;
@@ -98,7 +99,7 @@ void operator_mode_audio_mono(engine_inputs_t* inputs, engine_outputs_t* outputs
     outputs->laser_pwm_output_b = 1;
 }
 
-// MODE_SPIRAL
+// MODE_SPINNING_COIN
 void operator_mode_messed_up_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     static int16_t x_val = 0;
     static int16_t y_val = 0;
@@ -150,11 +151,48 @@ void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     outputs->laser_pwm_output_b = 1;
 }
 
+
+void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+    int16_t x_out = 0;
+    int16_t y_out = 0;
+
+    static int16_t t = 0;
+    int16_t dt = inputs->cv_in_right/10;
+    int16_t width = inputs->cv_in_left;
+    const int16_t halfwidth = width/2;
+
+    t += dt;
+    if (t >= 4*width) {
+        t = 0;
+    }
+    if (t < width) {
+        x_out = LASER_MIDPOINT + t - halfwidth; // MID - half, MID + half
+        y_out = LASER_MIDPOINT - halfwidth; // MID - half
+    } else if (t < 2*width) {
+        x_out = LASER_MIDPOINT + halfwidth; // MID + half
+        y_out = LASER_MIDPOINT + t - width - halfwidth; // MID - half, MID + half
+    } else if (t < 3*width) {
+        x_out = LASER_MIDPOINT - (t - 2*width - halfwidth); // MID
+        y_out = LASER_MIDPOINT + halfwidth;
+    } else {//(t < 4LASER_POS_MAX) {
+        x_out = LASER_MIDPOINT - halfwidth;
+        y_out = LASER_MIDPOINT - (t - 3*width - halfwidth);
+    }
+
+
+    outputs->position_output_x = x_out;
+    outputs->position_output_y = y_out;
+    outputs->laser_pwm_output_r = 1;
+    outputs->laser_pwm_output_g = 1;
+    outputs->laser_pwm_output_b = 1;
+}
+
 modeFunctor g_mode_functors[NUM_MODES] = {
     &operator_mode_audio_stereo,
     &operator_mode_audio_mono,
     &operator_mode_spiral,
-    &operator_mode_messed_up_spiral
+    &operator_mode_messed_up_spiral,
+    &operator_mode_rectangle
 };
 
 normalized_inputs_t NormalizeInputs(engine_inputs_t* inputs) {

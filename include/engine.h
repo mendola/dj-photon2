@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define LASER_POS_MAX 4095
+#define LASER_MIDPOINT (LASER_POS_MAX/2)
 #define ADC_IN_MAX 4095
 #define ADC_IN_MIDPOINT  (ADC_IN_MAX / 2)
 #define AUDIO_IN_LEFT_MAX

@@ -140,8 +140,8 @@ int main(void) {
   chSysInit();
 
   // GPIO PB3 is by default used for SWD output. Turn it off so we can use PB3 as GPIO.
-  AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_Msk;
-  AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_DISABLEZ
+  // AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_Msk;
+  // AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_DISABLE;
 
   SetupPins();
 
