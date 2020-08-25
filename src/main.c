@@ -95,27 +95,23 @@ void SetupPins(void) {
 
 
 void SetLaserPwm(const int16_t pwm_output_r, const int16_t pwm_output_g, const int16_t pwm_output_b) {
-  // if (pwm_output_r > 0) {
-  //   palSetPad(GPIOB, 3);
-  // } else {
-  //   palClearPad(GPIOB, 3);
-  // }
-
-  // if (pwm_output_g > 0) {
-  //   palSetPad(GPIOB, 6);
-  // } else {
-  //   palClearPad(GPIOB, 6);
-  // }
-
-  // if (pwm_output_b > 0) {
-  //   palSetPad(GPIOB, 9);
-  // } else {
-  //   palClearPad(GPIOB, 9);
-  // }
+  if (pwm_output_r > 0) {
     palSetPad(GPIOB, 3);
-    palSetPad(GPIOB, 6);
-    palSetPad(GPIOB, 9);
+  } else {
+    palClearPad(GPIOB, 3);
+  }
 
+  if (pwm_output_g > 0) {
+    palSetPad(GPIOB, 6);
+  } else {
+    palClearPad(GPIOB, 6);
+  }
+
+  if (pwm_output_b > 0) {
+    palSetPad(GPIOB, 9);
+  } else {
+    palClearPad(GPIOB, 9);
+  }
 }
 
 

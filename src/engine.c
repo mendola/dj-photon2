@@ -5,7 +5,17 @@
 #define PI (3.14159265)
 #define PI_OVER_2  (PI / 2.0)
 
+#define COLORLINE_MAX  800
+#define NUM_COLORS 8
+#define COLORLINE_BIN_SIZE (COLORLINE_MAX / NUM_COLORS)
+
 typedef void (*modeFunctor)(engine_inputs_t* inputs, engine_outputs_t* outputs);
+
+typedef enum colorchannel {
+    RED = 0,
+    GREEN = 1,
+    BLUE = 2
+} colorchannel_t;
 
 typedef enum generatormode{
     MODE_AUDIO_STEREO = 0,
@@ -28,62 +38,87 @@ typedef struct modemixt {
     float mix_ratio;
 } mode_mix_t;
 
-void SetModeMix(mode_mix_t* mode_mix, float selection_point) {
-    if (selection_point < REGION_SIZE) {
-        mode_mix->mode_a = MODE_AUDIO_STEREO;
-        mode_mix->mode_b = MODE_AUDIO_STEREO;
-        mode_mix->mix_ratio = 0.0;
-    } else if (selection_point < REGION_SIZE * 2.0) {
-        mode_mix->mode_a = MODE_AUDIO_STEREO;
-        mode_mix->mode_b = MODE_AUDIO_MONO_WAVEFORM;
-        mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE) / REGION_SIZE;
-    } else if (selection_point < REGION_SIZE * 3) {
-        mode_mix->mode_a = MODE_AUDIO_MONO_WAVEFORM;
-        mode_mix->mode_b = MODE_AUDIO_MONO_WAVEFORM;
-        mode_mix->mix_ratio = 0;
-    } else if (selection_point < REGION_SIZE * 4) {
-        mode_mix->mode_a = MODE_AUDIO_MONO_WAVEFORM;
-        mode_mix->mode_b = MODE_SPINNING_COIN;
-        mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE*3) / REGION_SIZE;
-    } else if (selection_point < REGION_SIZE * 5){//if (selection_point < REGION_SIZE * 5) {
-        mode_mix->mode_a = MODE_SPINNING_COIN;
-        mode_mix->mode_b = MODE_SPINNING_COIN;
-        mode_mix->mix_ratio = 0;
-    } else if (selection_point < REGION_SIZE * 6) {
-        mode_mix->mode_a = MODE_SPINNING_COIN;
-        mode_mix->mode_b = MODE_MESSED_UP_SPIRAL;
-        mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE*5) / REGION_SIZE;
-    } else if (selection_point < REGION_SIZE * 7) {
-        mode_mix->mode_a = MODE_MESSED_UP_SPIRAL;
-        mode_mix->mode_b = MODE_MESSED_UP_SPIRAL;
-        mode_mix->mix_ratio = 0;
-    } else if (selection_point < REGION_SIZE * 8) {
-        mode_mix->mode_a = MODE_MESSED_UP_SPIRAL;
-        mode_mix->mode_b = MODE_RECTANGLE;
-        mode_mix->mix_ratio = 1 - (selection_point - REGION_SIZE*7) / REGION_SIZE;
-    } else {//if (selection_point < REGION_SIZE * 7) {
-        mode_mix->mode_a = MODE_RECTANGLE;
-        mode_mix->mode_b = MODE_RECTANGLE;
-        mode_mix->mix_ratio = 0;
+void SetMonoColor(const colorchannel_t color, const int16_t value, engine_outputs_t* outputs) {
+    switch (color) {
+        case RED:
+            outputs->laser_pwm_output_r = value;
+            break;
+        case GREEN:
+            outputs->laser_pwm_output_g = value;
+            break;
+        case BLUE:
+        default:
+            outputs->laser_pwm_output_b = value;
+            break;        
     }
-//     } else if (selection_point < REGION_SIZE * 8) {
-//         mode_mix->mode_a = MODE_RECTANGLE;
-//         mode_mix->mode_b = MODE_FULL_SCAN;
-//         mode_mix->mix_ratio = (selection_point - REGION_SIZE*8) / REGION_SIZE;
-//     } else {
-//         mode_mix->mode_a = MODE_FULL_SCAN;
-//         mode_mix->mode_b = MODE_FULL_SCAN;
-//         mode_mix->mix_ratio = 0;   
-//     }
+}
+
+void IntToColors(int16_t value, engine_outputs_t* outputs) {
+    value = value < 0 ? 0 :
+                        value > COLORLINE_MAX ? COLORLINE_MAX : value;
+    int16_t bin = value / COLORLINE_BIN_SIZE + 1;
+
+    switch (bin) {
+        case 1:
+            SetMonoColor(RED, 0, outputs);
+            SetMonoColor(GREEN, 0, outputs);
+            SetMonoColor(BLUE, 0, outputs);
+            break;
+        case 2:
+            SetMonoColor(RED, 1, outputs);
+            SetMonoColor(GREEN, 0, outputs);
+            SetMonoColor(BLUE, 0, outputs);
+            break;
+        case 3:
+            SetMonoColor(RED, 0, outputs);
+            SetMonoColor(GREEN, 1, outputs);
+            SetMonoColor(BLUE, 0, outputs);
+            break;
+        case 4:
+            SetMonoColor(RED, 0, outputs);
+            SetMonoColor(GREEN, 0, outputs);
+            SetMonoColor(BLUE, 1, outputs);
+            break;
+        case 5:
+            SetMonoColor(RED, 0, outputs);
+            SetMonoColor(GREEN, 1, outputs);
+            SetMonoColor(BLUE, 1, outputs);
+            break;
+        case 6:
+            SetMonoColor(RED, 1, outputs);
+            SetMonoColor(GREEN, 1, outputs);
+            SetMonoColor(BLUE, 0, outputs);
+            break;
+        case 7:
+            SetMonoColor(RED, 1, outputs);
+            SetMonoColor(GREEN, 0, outputs);
+            SetMonoColor(BLUE, 1, outputs);
+            break;
+        case 8:
+        default:
+            SetMonoColor(RED, 1, outputs);
+            SetMonoColor(GREEN, 1, outputs);
+            SetMonoColor(BLUE, 1, outputs);
+            break;
+    }
+}
+
+GeneratorModeEnum GetMode(float selection_point) {
+    selection_point = selection_point < 0.0 ? 0.0 : selection_point;
+    int16_t int_selection_point = (int16_t)(selection_point * (float)NUM_MODES);
+
+    int_selection_point = int_selection_point < 0 ? 0 : 
+                                            int_selection_point >= NUM_MODES ? NUM_MODES - 1 : int_selection_point;
+    return (GeneratorModeEnum)int_selection_point;
+
 }
 
 //MODE_AUDIO_STEREO
 void operator_mode_audio_stereo(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     outputs->position_output_x = inputs->audio_in_left;
     outputs->position_output_y = inputs->audio_in_right;
-    outputs->laser_pwm_output_r = 1;
-    outputs->laser_pwm_output_g = 1;
-    outputs->laser_pwm_output_b = 1;
+    int16_t color = inputs->cv_in_right/5;
+    IntToColors(color, outputs);
 }
 
 // MODE_AUDIO_MONO_WAVEFORM
@@ -94,9 +129,10 @@ void operator_mode_audio_mono(engine_inputs_t* inputs, engine_outputs_t* outputs
     x_value = x_value % LASER_POS_MAX;
     outputs->position_output_x = x_value;
     outputs->position_output_y = inputs->audio_in_right;
-    outputs->laser_pwm_output_r = 1;
-    outputs->laser_pwm_output_g = 1;
-    outputs->laser_pwm_output_b = 1;
+
+    int16_t color = inputs->cv_in_right/5;
+    IntToColors(color, outputs);
+
 }
 
 // MODE_SPINNING_COIN
@@ -117,11 +153,15 @@ void operator_mode_messed_up_spiral(engine_inputs_t* inputs, engine_outputs_t* o
     x_val = (int16_t)(sin(t) * LASER_POS_MAX * amplitude) + LASER_POS_MAX;
     y_val = (int16_t)(sin(t + PI_OVER_2) * LASER_POS_MAX) + LASER_POS_MAX;
 
+
+    static int16_t color = 0;
+    int16_t dcolor = inputs->cv_in_right/10;
+    color += dcolor;
+    color = color > COLORLINE_MAX ? 0 : color;
+    IntToColors(color, outputs);
+
     outputs->position_output_x = x_val;
     outputs->position_output_y = y_val;
-    outputs->laser_pwm_output_r = 1;
-    outputs->laser_pwm_output_g = 1;
-    outputs->laser_pwm_output_b = 1;
 }
 
 void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
@@ -144,11 +184,15 @@ void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     x_val = (int16_t)(sin(t) * (float)ADC_IN_MIDPOINT * amplitude) + ADC_IN_MIDPOINT;
     y_val = (int16_t)(cos(t) * (float)ADC_IN_MIDPOINT) + ADC_IN_MIDPOINT;
 
+
+    static int16_t color = 0;
+    int16_t dcolor = inputs->cv_in_right/10;
+    color += dcolor;
+    color = color > COLORLINE_MAX ? 0 : color;
+    IntToColors(color, outputs);
+
     outputs->position_output_x = x_val;
     outputs->position_output_y = y_val;
-    outputs->laser_pwm_output_r = 1;
-    outputs->laser_pwm_output_g = 1;
-    outputs->laser_pwm_output_b = 1;
 }
 
 
@@ -156,8 +200,11 @@ void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs)
     int16_t x_out = 0;
     int16_t y_out = 0;
 
+    const int16_t range_start = ADC_IN_MAX / NUM_COLORS * (int16_t)MODE_RECTANGLE;
+    const int16_t range_end = ADC_IN_MAX / NUM_COLORS * ((int16_t)MODE_RECTANGLE + 1);
     static int16_t t = 0;
-    int16_t dt = inputs->cv_in_right/10;
+
+    const int dt = (inputs->cv_in_middle - range_start) * 4;
     int16_t width = inputs->cv_in_left;
     const int16_t halfwidth = width/2;
 
@@ -179,12 +226,14 @@ void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs)
         y_out = LASER_MIDPOINT - (t - 3*width - halfwidth);
     }
 
+    static int16_t color = 0;
+    int16_t dcolor = inputs->cv_in_right/10;
+    color += dcolor;
+    color = color > COLORLINE_MAX ? 0 : color;
+    IntToColors(color, outputs);
 
     outputs->position_output_x = x_out;
     outputs->position_output_y = y_out;
-    outputs->laser_pwm_output_r = 1;
-    outputs->laser_pwm_output_g = 1;
-    outputs->laser_pwm_output_b = 1;
 }
 
 modeFunctor g_mode_functors[NUM_MODES] = {
@@ -250,20 +299,11 @@ engine_outputs_t MixEngineOutputs(engine_outputs_t* out_a, engine_outputs_t* out
 void RunEngine(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     const float generator_selection_point = (float)inputs->cv_in_middle / (float)2048;
 
-    mode_mix_t mix;
-    // normalized_inputs_t norm_inputs = NormalizeInputs(inputs);
-    // normalized_outputs_t norm_outputs_a;
-    // normalized_outputs_t norm_outputs_b;
-    engine_outputs_t outputs_a;
-    engine_outputs_t outputs_b;
-    SetModeMix(&mix, generator_selection_point);
-    modeFunctor functor_a = g_mode_functors[(uint8_t)mix.mode_a];
-    modeFunctor functor_b = g_mode_functors[(uint8_t)mix.mode_b];
-    
-    if (functor_a != NULL && functor_b != NULL) {
-        functor_a(inputs, &outputs_a);
-        functor_b(inputs, &outputs_b);
-    }
+    const GeneratorModeEnum mode = GetMode(generator_selection_point);
 
-    *outputs = MixEngineOutputs(&outputs_a, &outputs_b, mix.mix_ratio);
+    modeFunctor functor = g_mode_functors[(uint8_t)mode];
+    
+    if (functor != NULL) {
+        functor(inputs, outputs);
+    }
 }
