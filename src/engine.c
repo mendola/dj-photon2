@@ -1,6 +1,7 @@
 #include <ch.h> // For NULL
 #include "engine.h"
 #include "math.h"
+#include "laserpwm.h"
 
 #define PI (3.14159265)
 #define PI_OVER_2  (PI / 2.0)
@@ -179,12 +180,14 @@ void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs)
         y_out = LASER_MIDPOINT - (t - 3*width - halfwidth);
     }
 
+    static uint8_t color = 0;
+    color = (color + 1) % PWM_PERIOD;
 
     outputs->position_output_x = x_out;
     outputs->position_output_y = y_out;
-    outputs->laser_pwm_output_r = 1;
-    outputs->laser_pwm_output_g = 1;
-    outputs->laser_pwm_output_b = 1;
+    outputs->laser_pwm_output_r = color;
+    outputs->laser_pwm_output_g = color;
+    outputs->laser_pwm_output_b = color;
 }
 
 modeFunctor g_mode_functors[NUM_MODES] = {

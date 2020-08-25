@@ -20,6 +20,7 @@
 
 #include "dac_mcp4822.h"
 #include "engine.h"
+#include "laserpwm.h"
 
 #define ADC_GRP1_NUM_CHANNELS   1
 #define ADC_GRP1_BUF_DEPTH      8
@@ -94,34 +95,9 @@ void SetupPins(void) {
 }
 
 
-void SetLaserPwm(const int16_t pwm_output_r, const int16_t pwm_output_g, const int16_t pwm_output_b) {
-  // if (pwm_output_r > 0) {
-  //   palSetPad(GPIOB, 3);
-  // } else {
-  //   palClearPad(GPIOB, 3);
-  // }
-
-  // if (pwm_output_g > 0) {
-  //   palSetPad(GPIOB, 6);
-  // } else {
-  //   palClearPad(GPIOB, 6);
-  // }
-
-  // if (pwm_output_b > 0) {
-  //   palSetPad(GPIOB, 9);
-  // } else {
-  //   palClearPad(GPIOB, 9);
-  // }
-    palSetPad(GPIOB, 3);
-    palSetPad(GPIOB, 6);
-    palSetPad(GPIOB, 9);
-
-}
-
-
 void SetLaserOutputs(engine_outputs_t* engine_outputs) {
   TransmitSamples(engine_outputs->position_output_x, engine_outputs->position_output_y);
-  SetLaserPwm(engine_outputs->laser_pwm_output_r, engine_outputs->laser_pwm_output_g, engine_outputs->laser_pwm_output_b);
+  SetLaserPwmLevels(engine_outputs->laser_pwm_output_r, engine_outputs->laser_pwm_output_g, engine_outputs->laser_pwm_output_b);
 }
 
 /*
@@ -158,9 +134,7 @@ int main(void) {
   AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_Msk;
   AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_DISABLE;
 
-  palSetPad(GPIOB, 3);
-  palSetPad(GPIOB, 6);
-  palSetPad(GPIOB, 9);
+  StartLaserPwm();
 
   while (true) {
     engine_inputs_t inputs;

@@ -117,7 +117,8 @@ CSRC = $(ALLCSRC) \
        $(TESTSRC) \
        $(PROJ_ROOT)/src/main.c \
        $(PROJ_ROOT)/src/dac_mcp4822.c \
-       $(PROJ_ROOT)/src/engine.c
+       $(PROJ_ROOT)/src/engine.c \
+       $(PROJ_ROOT)/src/laserpwm.c
 
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
