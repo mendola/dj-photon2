@@ -139,10 +139,6 @@ int main(void) {
   halInit();
   chSysInit();
 
-  // GPIO PB3 is by default used for SWD output. Turn it off so we can use PB3 as GPIO.
-  // AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_Msk;
-  // AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_DISABLE;
-
   SetupPins();
 
 
@@ -154,9 +150,14 @@ int main(void) {
   adcConvert(&ADCD1, &g_adc_grp_config, g_adc_samples_buf, ADC_GROUP_BUF_DEPTH);
 
   /*
-   * Normal main() thread activity, in this demo it does nothing.
+   * Sleep 2s before disabling Serial JTAG (so there's a window to program it)
    */
   chThdSleepMilliseconds(2000);
+
+  // GPIO PB3 is by default used for SWD output. Turn it off so we can use PB3 as GPIO.
+  AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_Msk;
+  AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_DISABLE;
+
   palSetPad(GPIOB, 3);
   palSetPad(GPIOB, 6);
   palSetPad(GPIOB, 9);
