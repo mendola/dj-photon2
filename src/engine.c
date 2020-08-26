@@ -21,15 +21,15 @@ typedef enum generatormode{
     MODE_AUDIO_STEREO = 0,
     MODE_AUDIO_MONO_WAVEFORM,
     MODE_SPINNING_COIN,
+    MODE_SPIRAL,
     MODE_MESSED_UP_SPIRAL,
     MODE_RECTANGLE,
-    // MODE_SPIRAL
-    // MODE_FULL_SCAN,
+    MODE_FULL_SCAN,
 
     NUM_MODES
 } GeneratorModeEnum;
 
-const float REGION_SIZE = 1.0 /  (float)NUM_MODES;
+const int16_t REGION_SIZE = ADC_IN_MAX / NUM_MODES;
 
 
 typedef struct modemixt {
@@ -103,12 +103,12 @@ void IntToColors(int16_t value, engine_outputs_t* outputs) {
     }
 }
 
-GeneratorModeEnum GetMode(float selection_point) {
-    selection_point = selection_point < 0.0 ? 0.0 : selection_point;
-    int16_t int_selection_point = (int16_t)(selection_point * (float)NUM_MODES);
+GeneratorModeEnum GetMode(int16_t selection_point_adc_val) {
+    int16_t int_selection_point = selection_point_adc_val / (REGION_SIZE + 1);
 
-    int_selection_point = int_selection_point < 0 ? 0 : 
-                                            int_selection_point >= NUM_MODES ? NUM_MODES - 1 : int_selection_point;
+    if (int_selection_point < 0 || int_selection_point >= NUM_MODES) {
+        while (1) {};
+    }
     return (GeneratorModeEnum)int_selection_point;
 
 }
@@ -164,7 +164,7 @@ void operator_mode_messed_up_spiral(engine_inputs_t* inputs, engine_outputs_t* o
     outputs->position_output_y = y_val;
 }
 
-void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+void operator_mode_spinning_coin(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     static int16_t x_val = 0;
     static int16_t y_val = 0;
     static float t = 0;
@@ -195,16 +195,46 @@ void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     outputs->position_output_y = y_val;
 }
 
+void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+    static int16_t x_val = 0;
+    static int16_t y_val = 0;
+    static float t = 0;
+    static float amplitude = 0;
+    const int16_t range_start = ADC_IN_MAX / NUM_MODES * (int16_t)MODE_RECTANGLE;
+
+    const int dt = (float)(inputs->cv_in_middle - range_start) / 100;
+
+    static float sign = 1.0;
+    float d_amplitude = (float)inputs->cv_in_left / 100000; // Arbitrary denom
+
+    amplitude += d_amplitude * sign;
+    if (amplitude > 1.0) {
+        sign = -1.0;
+    } else if (amplitude < 0.0) {
+        sign = 1.0;
+    }
+    t += dt;
+    x_val = (int16_t)(sin(t) * (float)ADC_IN_MIDPOINT * amplitude) + ADC_IN_MIDPOINT;
+    y_val = (int16_t)(cos(t) * (float)ADC_IN_MIDPOINT * amplitude) + ADC_IN_MIDPOINT;
+
+
+    int16_t color = inputs->cv_in_right/5;
+
+    IntToColors(color, outputs);
+
+    outputs->position_output_x = x_val;
+    outputs->position_output_y = y_val;
+}
 
 void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     int16_t x_out = 0;
     int16_t y_out = 0;
 
-    const int16_t range_start = ADC_IN_MAX / NUM_COLORS * (int16_t)MODE_RECTANGLE;
-    const int16_t range_end = ADC_IN_MAX / NUM_COLORS * ((int16_t)MODE_RECTANGLE + 1);
+    const int16_t range_start = ADC_IN_MAX / NUM_MODES * (int16_t)MODE_RECTANGLE;
+    //const int16_t range_end = ADC_IN_MAX / NUM_COLORS * ((int16_t)MODE_RECTANGLE + 1);
     static int16_t t = 0;
 
-    const int dt = (inputs->cv_in_middle - range_start) * 4;
+    const int dt = (inputs->cv_in_middle - range_start);
     int16_t width = inputs->cv_in_left;
     const int16_t halfwidth = width/2;
 
@@ -236,12 +266,43 @@ void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs)
     outputs->position_output_y = y_out;
 }
 
+void operator_mode_full_scan(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+    static int16_t x_out = 0;
+    static int16_t y_out = 0;
+
+    static uint8_t downscale = 0;
+
+    if (++downscale > 2) {
+        downscale = 0;
+        if (x_out == 0) {
+            x_out = LASER_POS_MAX;
+        } else {
+            x_out = 0;
+            y_out += 100;
+            if (y_out >= LASER_POS_MAX) {
+                y_out = 0;
+            }
+        }
+    }
+
+    static int16_t color = 0;
+    int16_t dcolor = inputs->cv_in_right/10;
+    color += dcolor;
+    color = color > COLORLINE_MAX ? 0 : color;
+    IntToColors(color, outputs);
+
+    outputs->position_output_x = x_out;
+    outputs->position_output_y = y_out;
+}
+
 modeFunctor g_mode_functors[NUM_MODES] = {
     &operator_mode_audio_stereo,
     &operator_mode_audio_mono,
+    &operator_mode_spinning_coin,
     &operator_mode_spiral,
     &operator_mode_messed_up_spiral,
-    &operator_mode_rectangle
+    &operator_mode_rectangle,
+    &operator_mode_full_scan
 };
 
 normalized_inputs_t NormalizeInputs(engine_inputs_t* inputs) {
@@ -297,9 +358,8 @@ engine_outputs_t MixEngineOutputs(engine_outputs_t* out_a, engine_outputs_t* out
 }
 
 void RunEngine(engine_inputs_t* inputs, engine_outputs_t* outputs) {
-    const float generator_selection_point = (float)inputs->cv_in_middle / (float)2048;
 
-    const GeneratorModeEnum mode = GetMode(generator_selection_point);
+    const GeneratorModeEnum mode = GetMode(inputs->cv_in_middle);
 
     modeFunctor functor = g_mode_functors[(uint8_t)mode];
     
