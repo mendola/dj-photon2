@@ -24,7 +24,7 @@ typedef enum generatormode{
     MODE_SPIRAL,
     MODE_MESSED_UP_SPIRAL,
     MODE_RECTANGLE,
-    MODE_FULL_SCAN,
+    MODE_STARRY,
 
     NUM_MODES
 } GeneratorModeEnum;
@@ -178,7 +178,7 @@ void operator_mode_spinning_coin(engine_inputs_t* inputs, engine_outputs_t* outp
     static float t = 0;
     static float amplitude = 0;
 
-    const int16_t range_start = ADC_IN_MAX / NUM_MODES * (int16_t)MODE_RECTANGLE;
+    const int16_t range_start = REGION_SIZE * (int16_t)MODE_SPINNING_COIN;
 
     const float dt = (float)(inputs->cv_in_middle - range_start) / 100.0;
 
@@ -218,9 +218,9 @@ void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     static int16_t y_val = 0;
     static float t = 0;
     static float amplitude = 0;
-    const int16_t range_start = ADC_IN_MAX / NUM_MODES * (int16_t)MODE_RECTANGLE;
+    const int16_t range_start = REGION_SIZE * (int16_t)MODE_SPIRAL;
 
-    const int dt = (float)(inputs->cv_in_middle - range_start) / 100;
+    const int dt = (float)(inputs->cv_in_middle - range_start) / 100.0;
 
     static float sign = 1.0;
     float d_amplitude = (float)inputs->cv_in_left / 100000; // Arbitrary denom
@@ -248,7 +248,7 @@ void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs)
     int16_t x_out = 0;
     int16_t y_out = 0;
 
-    const int16_t range_start = ADC_IN_MAX / NUM_MODES * (int16_t)MODE_RECTANGLE;
+    const int16_t range_start = REGION_SIZE * (int16_t)MODE_RECTANGLE;
     //const int16_t range_end = ADC_IN_MAX / NUM_COLORS * ((int16_t)MODE_RECTANGLE + 1);
     static int16_t t = 0;
 
@@ -284,33 +284,65 @@ void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs)
     outputs->position_output_y = y_out;
 }
 
-void operator_mode_full_scan(engine_inputs_t* inputs, engine_outputs_t* outputs) {
-    static int16_t x_out = 0;
-    static int16_t y_out = 0;
+// void operator_mode_full_scan(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+//     static int16_t x_out = 0;
+//     static int16_t y_out = 0;
 
-    static uint8_t downscale = 0;
+//     static uint8_t downscale = 0;
 
-    if (++downscale > 2) {
-        downscale = 0;
-        if (x_out == 0) {
-            x_out = LASER_POS_MAX;
-        } else {
-            x_out = 0;
-            y_out += 100;
-            if (y_out >= LASER_POS_MAX) {
-                y_out = 0;
-            }
-        }
-    }
+//     if (++downscale > 2) {
+//         downscale = 0;
+//         if (x_out == 0) {
+//             x_out = LASER_POS_MAX;
+//         } else {
+//             x_out = 0;
+//             y_out += 100;
+//             if (y_out >= LASER_POS_MAX) {
+//                 y_out = 0;
+//             }
+//         }
+//     }
 
-    static int16_t color = 0;
-    int16_t dcolor = inputs->cv_in_right/10;
-    color += dcolor;
-    color = color > COLORLINE_MAX ? 0 : color;
-    IntToColors(color, outputs, false);
+//     static int16_t color = 0;
+//     int16_t dcolor = inputs->cv_in_right/10;
+//     color += dcolor;
+//     color = color > COLORLINE_MAX ? 0 : color;
+//     IntToColors(color, outputs, false);
 
-    outputs->position_output_x = x_out;
-    outputs->position_output_y = y_out;
+//     outputs->position_output_x = x_out;
+//     outputs->position_output_y = y_out;
+// }
+
+void operator_mode_starry(engine_inputs_t* inputs, engine_outputs_t* outputs) {
+    static int16_t x_val = 0;
+    static int16_t y_val = 0;
+    static float t = 0;
+    static float amplitude = 0;
+
+    const int16_t range_start = REGION_SIZE * (int16_t)MODE_STARRY;
+    const int16_t num = (inputs->cv_in_middle - range_start) / 100;
+    const int16_t denom = 1 + (inputs->cv_in_left / 800);
+    const float dtheta = (float)PI * (float)num / (float)denom;
+    t += dtheta;
+    x_val = (int16_t)(cos(t) * (float)ADC_IN_MIDPOINT) + ADC_IN_MIDPOINT;
+    y_val = (int16_t)(sin(t) * (float)ADC_IN_MIDPOINT) + ADC_IN_MIDPOINT;
+
+    outputs->position_output_x = x_val;
+    outputs->position_output_y = y_val;
+
+
+    int16_t color_setpoint = inputs->cv_in_right;
+
+    if (color_setpoint > ADC_IN_MAX / 2) {
+        color_setpoint -= ADC_IN_MAX / 2;
+        color_setpoint *= 1;
+        static float color_phase = 0;
+        color_phase = color_phase + color_setpoint;
+        int16_t dynamic_color = (int16_t)(sin(t + (float)color_phase/100000.0) * ADC_IN_MIDPOINT) + ADC_IN_MIDPOINT;
+        IntToColors(dynamic_color, outputs, false);
+    } else {
+        IntToColors(color_setpoint*2, outputs, false);
+    }   
 }
 
 modeFunctor g_mode_functors[NUM_MODES] = {
@@ -320,7 +352,7 @@ modeFunctor g_mode_functors[NUM_MODES] = {
     &operator_mode_spiral,
     &operator_mode_messed_up_spiral,
     &operator_mode_rectangle,
-    &operator_mode_full_scan
+    &operator_mode_starry,
 };
 
 normalized_inputs_t NormalizeInputs(engine_inputs_t* inputs) {
