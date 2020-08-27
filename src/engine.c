@@ -5,7 +5,7 @@
 #define PI (3.14159265)
 #define PI_OVER_2  (PI / 2.0)
 
-#define COLORLINE_MAX  800
+#define COLORLINE_MAX  4096
 #define NUM_COLORS 8
 #define COLORLINE_BIN_SIZE (COLORLINE_MAX / NUM_COLORS)
 
@@ -53,10 +53,14 @@ void SetMonoColor(const colorchannel_t color, const int16_t value, engine_output
     }
 }
 
-void IntToColors(int16_t value, engine_outputs_t* outputs) {
+void IntToColors(int16_t value, engine_outputs_t* outputs, const bool off_allowed) {
     value = value < 0 ? 0 :
                         value > COLORLINE_MAX ? COLORLINE_MAX : value;
     int16_t bin = value / COLORLINE_BIN_SIZE + 1;
+
+    if (!off_allowed && bin == 1) {
+        bin += 1;
+    }
 
     switch (bin) {
         case 1:
@@ -118,21 +122,25 @@ void operator_mode_audio_stereo(engine_inputs_t* inputs, engine_outputs_t* outpu
     outputs->position_output_x = inputs->audio_in_left;
     outputs->position_output_y = inputs->audio_in_right;
     int16_t color = inputs->cv_in_right/5;
-    IntToColors(color, outputs);
+    IntToColors(color, outputs, false);
 }
 
 // MODE_AUDIO_MONO_WAVEFORM
 void operator_mode_audio_mono(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     static int16_t x_value = 0;
-    int16_t x_rate = inputs->cv_in_left;
+    const int16_t x_rate = 100;//inputs->cv_in_left;
     x_value += x_rate;
+    int16_t color;
+    if (x_value > LASER_POS_MAX) {
+        color = 0;
+        IntToColors(0, outputs, true);
+    } else {
+        color = inputs->cv_in_right;
+        IntToColors(color, outputs, false);
+    }
     x_value = x_value % LASER_POS_MAX;
     outputs->position_output_x = x_value;
     outputs->position_output_y = inputs->audio_in_right;
-
-    int16_t color = inputs->cv_in_right/5;
-    IntToColors(color, outputs);
-
 }
 
 // MODE_SPINNING_COIN
@@ -155,10 +163,10 @@ void operator_mode_messed_up_spiral(engine_inputs_t* inputs, engine_outputs_t* o
 
 
     static int16_t color = 0;
-    int16_t dcolor = inputs->cv_in_right/10;
+    int16_t dcolor = inputs->cv_in_right;
     color += dcolor;
     color = color > COLORLINE_MAX ? 0 : color;
-    IntToColors(color, outputs);
+    IntToColors(color, outputs, true);
 
     outputs->position_output_x = x_val;
     outputs->position_output_y = y_val;
@@ -170,29 +178,39 @@ void operator_mode_spinning_coin(engine_inputs_t* inputs, engine_outputs_t* outp
     static float t = 0;
     static float amplitude = 0;
 
-    float dt = (float)inputs->cv_in_left / 10000;
+    const int16_t range_start = ADC_IN_MAX / NUM_MODES * (int16_t)MODE_RECTANGLE;
+
+    const float dt = (float)(inputs->cv_in_middle - range_start) / 100.0;
+
     static float sign = 1.0;
-    float d_amplitude = (float)inputs->cv_in_right / 100000; // Arbitrary denom
+    float d_amplitude = (float)inputs->cv_in_left / 100000.0; // Arbitrary denom
 
     amplitude += d_amplitude * sign;
     if (amplitude > 1.0) {
         sign = -1.0;
-    } else if (amplitude < 0.0) {
+    } else if (amplitude < -1.0) {
         sign = 1.0;
     }
     t += dt;
     x_val = (int16_t)(sin(t) * (float)ADC_IN_MIDPOINT * amplitude) + ADC_IN_MIDPOINT;
     y_val = (int16_t)(cos(t) * (float)ADC_IN_MIDPOINT) + ADC_IN_MIDPOINT;
 
-
-    static int16_t color = 0;
-    int16_t dcolor = inputs->cv_in_right/10;
-    color += dcolor;
-    color = color > COLORLINE_MAX ? 0 : color;
-    IntToColors(color, outputs);
-
     outputs->position_output_x = x_val;
     outputs->position_output_y = y_val;
+
+
+    int16_t color_setpoint = inputs->cv_in_right;
+
+    if (color_setpoint > ADC_IN_MAX / 2) {
+        color_setpoint -= ADC_IN_MAX / 2;
+        color_setpoint *= 1;
+        static float color_phase = 0;
+        color_phase = color_phase + color_setpoint;
+        int16_t dynamic_color = (int16_t)(sin(t + (float)color_phase/100000.0) * ADC_IN_MIDPOINT) + ADC_IN_MIDPOINT;
+        IntToColors(dynamic_color, outputs, false);
+    } else {
+        IntToColors(color_setpoint*2, outputs, false);
+    }
 }
 
 void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
@@ -218,9 +236,9 @@ void operator_mode_spiral(engine_inputs_t* inputs, engine_outputs_t* outputs) {
     y_val = (int16_t)(cos(t) * (float)ADC_IN_MIDPOINT * amplitude) + ADC_IN_MIDPOINT;
 
 
-    int16_t color = inputs->cv_in_right/5;
+    int16_t color = inputs->cv_in_right;
 
-    IntToColors(color, outputs);
+    IntToColors(color, outputs, false);
 
     outputs->position_output_x = x_val;
     outputs->position_output_y = y_val;
@@ -257,10 +275,10 @@ void operator_mode_rectangle(engine_inputs_t* inputs, engine_outputs_t* outputs)
     }
 
     static int16_t color = 0;
-    int16_t dcolor = inputs->cv_in_right/10;
+    int16_t dcolor = inputs->cv_in_right*10;
     color += dcolor;
     color = color > COLORLINE_MAX ? 0 : color;
-    IntToColors(color, outputs);
+    IntToColors(color, outputs, false);
 
     outputs->position_output_x = x_out;
     outputs->position_output_y = y_out;
@@ -289,7 +307,7 @@ void operator_mode_full_scan(engine_inputs_t* inputs, engine_outputs_t* outputs)
     int16_t dcolor = inputs->cv_in_right/10;
     color += dcolor;
     color = color > COLORLINE_MAX ? 0 : color;
-    IntToColors(color, outputs);
+    IntToColors(color, outputs, false);
 
     outputs->position_output_x = x_out;
     outputs->position_output_y = y_out;
