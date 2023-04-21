@@ -115,9 +115,33 @@ void SetLaserPwm(const int16_t pwm_output_r, const int16_t pwm_output_g, const i
 }
 
 
-void SetLaserOutputs(engine_outputs_t* engine_outputs) {
+void SetOutputs(engine_outputs_t* engine_outputs) {
   TransmitSamples(engine_outputs->position_output_x, engine_outputs->position_output_y);
   SetLaserPwm(engine_outputs->laser_pwm_output_r, engine_outputs->laser_pwm_output_g, engine_outputs->laser_pwm_output_b);
+}
+
+void DelayToAllowJtagFlash(void) {
+  /*
+   * Sleep 2s before disabling Serial JTAG (so there's a window to program it)
+   */
+  chThdSleepMilliseconds(2000);
+
+  // GPIO PB3 is by default used for SWD output. Turn it off so we can use PB3 as GPIO.
+  AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_Msk;
+  AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_DISABLE;
+}
+
+void StartAdc(void) {
+  /*
+   * Starts ADC
+   */
+  adcStart(&ADCD1, NULL);
+
+  /*
+   * Starts an ADC continuous conversion.
+   */
+  adcConvert(&ADCD1, &g_adc_grp_config, g_adc_samples_buf, ADC_GROUP_BUF_DEPTH);
+
 }
 
 /*
@@ -137,23 +161,11 @@ int main(void) {
 
   SetupPins();
 
+  DelayToAllowJtagFlash();
 
-  adcStart(&ADCD1, NULL);
+  StartAdc();
 
-  /*
-   * Starts an ADC continuous conversion.
-   */
-  adcConvert(&ADCD1, &g_adc_grp_config, g_adc_samples_buf, ADC_GROUP_BUF_DEPTH);
-
-  /*
-   * Sleep 2s before disabling Serial JTAG (so there's a window to program it)
-   */
-  chThdSleepMilliseconds(2000);
-
-  // GPIO PB3 is by default used for SWD output. Turn it off so we can use PB3 as GPIO.
-  AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_Msk;
-  AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_DISABLE;
-
+  // All lasers on
   palSetPad(GPIOB, 3);
   palSetPad(GPIOB, 6);
   palSetPad(GPIOB, 9);
@@ -164,7 +176,8 @@ int main(void) {
     adcConvert(&ADCD1, &g_adc_grp_config, g_adc_samples_buf, ADC_GROUP_BUF_DEPTH);
     GetSamples(&inputs, g_adc_samples_buf);
     RunEngine(&inputs, &outputs);
-    SetLaserOutputs(&outputs);    
+    SetOutputs(&outputs);    
   }
+
   return 0;
 }

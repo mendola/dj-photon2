@@ -218,3 +218,10 @@ ULIBS =
 
 RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk
 include $(RULESPATH)/rules.mk
+
+CMAKEFILE = ./simulator/CMakeLists.txt
+
+simulator:
+include ${GENERATED}
+${GENERATED}:${CMAKEFILE}
+   #  Generate the makefile here`
