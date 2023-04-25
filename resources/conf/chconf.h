@@ -33,6 +33,26 @@
 
 /*===========================================================================*/
 /**
+ * @name System settings
+ * @{
+ */
+/*===========================================================================*/
+
+/**
+ * @brief   Handling of instances.
+ * @note    If enabled then threads assigned to various instances can
+ *          interact each other using the same synchronization objects.
+ *          If disabled then each OS instance is a separate world, no
+ *          direct interactions are handled by the OS.
+ */
+#if !defined(CH_CFG_SMP_MODE)
+#define CH_CFG_SMP_MODE                     FALSE
+#endif
+
+/** @} */
+
+/*===========================================================================*/
+/**
  * @name System timers settings
  * @{
  */
@@ -119,6 +139,19 @@
 #define CH_CFG_NO_IDLE_THREAD               FALSE
 #endif
 
+/**
+ * @brief   Kernel hardening level.
+ * @details This option is the level of functional-safety checks enabled
+ *          in the kerkel. The meaning is:
+ *          - 0: No checks, maximum performance.
+ *          - 1: Reasonable checks.
+ *          - 2: All checks.
+ *          .
+ */
+#if !defined(CH_CFG_HARDENING_LEVEL)
+#define CH_CFG_HARDENING_LEVEL              0
+#endif
+
 /** @} */
 
 /*===========================================================================*/
@@ -162,8 +195,7 @@
 
 /**
  * @brief   Time Stamps APIs.
- * @details If enabled then the time time stamps APIs are included in
- *          the kernel.
+ * @details If enabled then the time stamps APIs are included in the kernel.
  *
  * @note    The default is @p TRUE.
  */
@@ -339,6 +371,16 @@
  */
 #if !defined(CH_CFG_USE_MAILBOXES)
 #define CH_CFG_USE_MAILBOXES                TRUE
+#endif
+
+/**
+ * @brief   Memory checks APIs.
+ * @details If enabled then the memory checks APIs are included in the kernel.
+ *
+ * @note    The default is @p TRUE.
+ */
+#if !defined(CH_CFG_USE_MEMCHECKS)
+#define CH_CFG_USE_MEMCHECKS                TRUE
 #endif
 
 /**
@@ -638,21 +680,35 @@
 /*===========================================================================*/
 
 /**
- * @brief   OS instance structure extension.
+ * @brief   System structure extension.
  * @details User fields added to the end of the @p ch_system_t structure.
+ */
+#define CH_CFG_SYSTEM_EXTRA_FIELDS                                          \
+  /* Add system custom fields here.*/
+
+/**
+ * @brief   System initialization hook.
+ * @details User initialization code added to the @p chSysInit() function
+ *          just before interrupts are enabled globally.
+ */
+#define CH_CFG_SYSTEM_INIT_HOOK() {                                         \
+  /* Add system initialization code here.*/                                 \
+}
+
+/**
+ * @brief   OS instance structure extension.
+ * @details User fields added to the end of the @p os_instance_t structure.
  */
 #define CH_CFG_OS_INSTANCE_EXTRA_FIELDS                                     \
   /* Add OS instance custom fields here.*/
 
 /**
  * @brief   OS instance initialization hook.
- * @details User initialization code added to the @p chSysInit() function
- *          just before interrupts are enabled globally.
  *
  * @param[in] oip       pointer to the @p os_instance_t structure
  */
 #define CH_CFG_OS_INSTANCE_INIT_HOOK(oip) {                                 \
-  /* Add system instance initialization code here.*/                        \
+  /* Add OS instance initialization code here.*/                            \
 }
 
 /**
@@ -763,6 +819,14 @@
  */
 #define CH_CFG_TRACE_HOOK(tep) {                                            \
   /* Trace code here.*/                                                     \
+}
+
+/**
+ * @brief   Runtime Faults Collection Unit hook.
+ * @details This hook is invoked each time new faults are collected and stored.
+ */
+#define CH_CFG_RUNTIME_FAULTS_HOOK(mask) {                                  \
+  /* Faults handling code here.*/                                           \
 }
 
 /** @} */

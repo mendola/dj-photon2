@@ -4,6 +4,8 @@
 #include "dac_mcp4822.h"
 #include "board.h"
 
+
+
 #define DAC_PIN_CS      GPIO_PB12_DAC_CS
 #define DAC_PIN_SDI     GPIO_PB15_DAC_MOSI
 #define DAC_PIN_SCK     GPIO_PB13_DAC_SCK
@@ -17,6 +19,19 @@
 #define CLEAR_DAC_SCK()   palClearPad(GPIOB, GPIO_PB13_DAC_SCK)
 #define SET_DAC_LDAC()    palSetPad(GPIOB, GPIO_PB14_DAC_MISO)
 #define CLEAR_DAC_LDAC()  palClearPad(GPIOB, GPIO_PB14_DAC_MISO)
+
+/*
+ * Maximum speed SPI configuration (25MHz, CPHA=0, CPOL=0, MSb first).
+ */
+const SPIConfig spicfg = {
+  .circular         = false,
+  .data_cb          = NULL,
+  .error_cb         = NULL, // spi_error_cb,
+  .ssport           = GPIOB,
+  .sspad            = GPIO_PB12_DAC_CS,
+  // .cfg1             = 0U, // SPI_CFG1_MBR_DIV8 | SPI_CFG1_DSIZE_VALUE(7),
+  // .cfg2             = 0U
+};
 
 #define NORMALIZED_TO_12BIT_FACTOR ((float)((1<<11) - 1)) // Convert [0,2.0] -> [0,0xFFF]
 
@@ -71,11 +86,13 @@ void InitDac(void) {
   /*
    * SPI1 I/O pins setup.
    */
-  palSetPadMode(GPIOB, 13, PAL_MODE_OUTPUT_PUSHPULL);     /* SCK. */
-  palSetPadMode(GPIOB, 14, PAL_MODE_OUTPUT_PUSHPULL);     /* MISO.*/
-  palSetPadMode(GPIOB, 15, PAL_MODE_OUTPUT_PUSHPULL);     /* MOSI.*/
-  palSetPadMode(GPIOB, 12, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetPad(GPIOB, 12);
+  palSetPadMode(GPIOB, GPIO_PB13_DAC_SCK, PAL_MODE_OUTPUT_PUSHPULL);     /* SCK. */
+  palSetPadMode(GPIOB, GPIO_PB14_DAC_MISO, PAL_MODE_OUTPUT_PUSHPULL);     /* MISO.*/
+  palSetPadMode(GPIOB, GPIO_PB15_DAC_MOSI, PAL_MODE_OUTPUT_PUSHPULL);     /* MOSI.*/
+  palSetPadMode(GPIOB, GPIO_PB12_DAC_CS, PAL_MODE_OUTPUT_PUSHPULL);
+  palSetPad(GPIOB, GPIO_PB12_DAC_CS);
+
+  spiStart(&SPID2, &spicfg);
 }
 
 static uint16_t MakeCommandPacket(int16_t value, const bool is_left) {
@@ -90,25 +107,30 @@ static uint16_t MakeCommandPacket(int16_t value, const bool is_left) {
 }
 
 void SendFrameManually(uint16_t frame) {
-  volatile int i = 0;
-  volatile int j = 0;
-  CLEAR_DAC_CS();
-  for (j =0; j < 10; ++j);
-  for (i=0; i < 16; ++i) {
-    uint16_t mask = 1 << (15 - i);
-    if (frame & mask) {
-      SET_DAC_SDI();
-    } else {
-      CLEAR_DAC_SDI();
-    }
-    for (j =0; j < 10; ++j);
-    SET_DAC_SCK();
-    for (j =0; j < 10; ++j);
-    CLEAR_DAC_SCK();
-    for (j =0; j < 10; ++j);
-  }
-  SET_DAC_CS();
-  for (j =0; j < 10; ++j);
+  // volatile int i = 0;
+  // volatile int j = 0;
+  // CLEAR_DAC_CS();
+  // for (j =0; j < 10; ++j);
+  // for (i=0; i < 16; ++i) {
+  //   uint16_t mask = 1 << (15 - i);
+  //   if (frame & mask) {
+  //     SET_DAC_SDI();
+  //   } else {
+  //     CLEAR_DAC_SDI();
+  //   }
+  //   for (j =0; j < 10; ++j);
+  //   SET_DAC_SCK();
+  //   for (j =0; j < 10; ++j);
+  //   CLEAR_DAC_SCK();
+  //   for (j =0; j < 10; ++j);
+  // }
+  // SET_DAC_CS();
+  // for (j =0; j < 10; ++j);
+  // spiAcquireBus(&SPID2);
+  spiSelect(&SPID2);
+  spiSend(&SPID2, 2, (void*)&frame);
+  spiUnselect(&SPID2);
+  // spiReleaseBus(&SPID2);
 }
 
 void TransmitSamples(const int16_t ch1_out, const int16_t ch2_out) {

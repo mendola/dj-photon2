@@ -353,7 +353,7 @@ void operator_mode_3d_spinning_coin(engine_inputs_t* inputs, engine_outputs_t* o
     static float t_r = 0;
     static float amplitude = 0;
 
-    const int16_t range_start = REGION_SIZE * (int16_t)MODE_SPINNING_COIN;
+    // const int16_t range_start = REGION_SIZE * (int16_t)MODE_SPINNING_COIN;
 
     const float dt = 0.3; //(float)(inputs->cv_in_middle - range_start) / 100.0;
 
